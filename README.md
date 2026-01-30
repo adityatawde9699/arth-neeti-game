@@ -104,7 +104,7 @@ We welcome contributions! Please read our [Contributing Guide](./CONTRIBUTING.md
 
 ## 📝 License
 
-MIT License - see [LICENSE](./LICENSE) for details.
+Proprietary License - see [LICENSE](./LICENSE) for details.
 
 ## 🙏 Acknowledgments
 

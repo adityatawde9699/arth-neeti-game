@@ -1,21 +1,42 @@
-MIT License
+# Proprietary License
 
-Copyright (c) 2026 Arth-Neeti Team
+Copyright (c) 2026 Arth-Neeti Team. All Rights Reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+## Terms and Conditions
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+This software and associated documentation files (the "Software") are the proprietary property of the Arth-Neeti Team.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+### Restrictions
+
+You may NOT, without prior written permission from the copyright holder:
+
+1. **Copy** - Reproduce, duplicate, or copy any part of this Software
+2. **Modify** - Create derivative works based on this Software
+3. **Distribute** - Distribute, publish, or share this Software
+4. **Fork** - Create forks of this repository
+5. **Clone** - Clone this repository for any purpose other than viewing
+6. **Commercial Use** - Use this Software for commercial purposes
+7. **Sublicense** - Grant sublicenses to third parties
+
+### Permitted Actions
+
+- Viewing the source code for educational purposes only
+- Reporting bugs or security issues to the maintainers
+
+### Permission Requests
+
+To request permission for any use not covered above, contact:
+- Email: [your-email@example.com]
+- GitHub: [@adityatawde9699](https://github.com/adityatawde9699)
+
+### Disclaimer
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING FROM THE USE OF THIS SOFTWARE.
+
+### Enforcement
+
+Any unauthorized use, reproduction, or distribution of this Software may result in legal action.
+
+---
+
+*This project was created for the NCFE Financial Literacy Hackathon.*
