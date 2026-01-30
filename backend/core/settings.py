@@ -63,10 +63,9 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-# CORS settings
-CORS_ALLOWED_ORIGINS_RAW = os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:5173,http://127.0.0.1:5173')
-CORS_ALLOWED_ORIGINS = [origin.strip().rstrip('/') for origin in CORS_ALLOWED_ORIGINS_RAW.split(',') if origin.strip()]
-CORS_ALLOW_ALL_ORIGINS = DEBUG  # Only allow all in development
+# CORS settings - Allow all for hackathon (Vercel generates dynamic preview URLs)
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
 
 ROOT_URLCONF = 'core.urls'
 
