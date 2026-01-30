@@ -7,7 +7,7 @@ Thank you for your interest in contributing! 🎉
 1. **Fork** the repository
 2. **Clone** your fork:
    ```bash
-   git clone https://github.com/adityatawde9699/arth-neeti.git
+   git clone https://github.com/yourusername/arth-neeti.git
    ```
 3. **Create a branch**:
    ```bash
