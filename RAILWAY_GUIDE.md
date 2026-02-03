@@ -14,8 +14,10 @@ This guide will help you deploy the Arth-Neeti game (Backend + Database + Fronte
 2.  Select **"Provision PostgreSQL"**.
 3.  This will create a new project with a Postgres database service.
 4.  Click on the **PostgreSQL** card.
-5.  Go to the **Variables** tab.
-6.  Copy the `DATABASE_URL` value (you will need this for the backend).
+6.  **Copy Connection String**:
+    *   Go to the **Variables** tab of the PostgreSQL service.
+    *   Copy the `DATABASE_URL` value (it looks like `postgresql://postgres:password@host:port/railway`).
+    *   **Tip**: You will paste this into the Backend Service's variables in the next part.
 
 ---
 
