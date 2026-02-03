@@ -35,11 +35,11 @@ This guide will help you deploy the Arth-Neeti game (Backend + Database + Fronte
     *   `CSRF_TRUSTED_ORIGINS`: `https://your-frontend-url.vercel.app` (You can update this *after* deploying frontend, for now put `https://*`)
     *   `DISABLE_COLLECTSTATIC`: `0`
 
-5.  **Configure Build/Start Command** (If not auto-detected):
-    *   Railway usually detects `Procfile`.
-    *   Build Command: `pip install -r backend/requirements.txt && python backend/manage.py migrate && python backend/manage.py collectstatic --noinput`
-    *   Start Command: `gunicorn backend.core.wsgi:application`
+5.  **Configure Settings**:
     *   **Root Directory**: `/backend` (Important! Set this in Settings -> Root Directory)
+    *   **Build/Start Commands**: Leave these **EMPTY** or default. Railway will use the `Dockerfile` I updated.
+        *   *Note*: The `Dockerfile` now handles `collectstatic`, migrations, seeding, and starting the server automatically.
+        *   If you entered commands previously, please **remove them**.
 
 6.  **Deploy**: Click Deploy.
 7.  **Generate Domain**:
