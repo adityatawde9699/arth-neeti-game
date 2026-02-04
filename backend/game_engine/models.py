@@ -35,6 +35,10 @@ class ScenarioCard(models.Model):
 
     title = models.CharField(max_length=200)
     description = models.TextField()
+    title_hi = models.CharField(max_length=200, blank=True, null=True)
+    description_hi = models.TextField(blank=True, null=True)
+    title_mr = models.CharField(max_length=200, blank=True, null=True)
+    description_mr = models.TextField(blank=True, null=True)
     category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='WANTS')
     difficulty = models.IntegerField(default=1)  # 1 (Easy) to 5 (Hard)
     min_month = models.IntegerField(default=1)   # Earliest month this card can appear

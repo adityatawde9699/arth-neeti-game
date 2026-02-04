@@ -59,4 +59,20 @@ export const api = {
         if (!response.ok) throw new Error('Failed to use lifeline');
         return response.json();
     },
+
+    // Take an emergency loan
+    async takeLoan(sessionId, loanType) {
+        const response = await fetch(`${API_BASE_URL}/take-loan/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                session_id: sessionId,
+                loan_type: loanType,
+            }),
+        });
+        if (!response.ok) throw new Error('Failed to take loan');
+        return response.json();
+    },
 };
