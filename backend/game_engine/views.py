@@ -149,7 +149,8 @@ def submit_choice(request):
         'MIN_HAPPINESS': 0,
         'MAX_HAPPINESS': 100,
         'MIN_CREDIT': 300,
-        'MAX_CREDIT': 900
+        'MAX_CREDIT': 900,
+        'MONTHLY_SALARY': 25000
     }
 
     # Clamp values
@@ -162,6 +163,19 @@ def submit_choice(request):
         card=choice.card,
         choice=choice
     )
+
+    # Advance month every X choices
+    choices_count = PlayerChoice.objects.filter(session=session).count()
+    new_month = (choices_count // GAME_CONFIG['CARDS_PER_MONTH']) + 1
+    feedback_message = choice.feedback or ""
+    if new_month > session.current_month:
+        months_passed = new_month - session.current_month
+        salary_credit = GAME_CONFIG['MONTHLY_SALARY'] * months_passed
+        session.wealth += salary_credit
+        prefix = f"{feedback_message} " if feedback_message else ""
+        feedback_message = f"{prefix}(Month {new_month} started! Salary ₹{salary_credit} credited.)"
+
+    session.current_month = new_month
 
     # Check win/loss conditions
     game_over = False
@@ -176,10 +190,6 @@ def submit_choice(request):
         game_over_reason = 'BURNOUT'
         session.is_active = False
 
-    # Advance month every X choices
-    choices_count = PlayerChoice.objects.filter(session=session).count()
-    session.current_month = (choices_count // GAME_CONFIG['CARDS_PER_MONTH']) + 1
-
     # Check if game duration completed
     if session.current_month > GAME_CONFIG['GAME_DURATION_MONTHS']:
         game_over = True
@@ -189,7 +199,7 @@ def submit_choice(request):
     session.save()
 
     response_data = {
-        'feedback': choice.feedback,
+        'feedback': feedback_message,
         'was_recommended': choice.is_recommended,
         'session': GameSessionSerializer(session).data,
         'game_over': game_over,
@@ -200,6 +210,60 @@ def submit_choice(request):
         response_data['final_persona'] = _calculate_persona(session)
 
     return Response(response_data)
+
+
+@api_view(['POST'])
+def take_loan(request):
+    """
+    Emergency loan endpoint for low-balance situations.
+    """
+    session_id = request.data.get('session_id')
+    loan_type = request.data.get('loan_type')  # 'FAMILY' or 'INSTANT_APP'
+
+    if not session_id or not loan_type:
+        return Response(
+            {'error': 'session_id and loan_type are required.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        session = GameSession.objects.get(id=session_id, is_active=True)
+    except GameSession.DoesNotExist:
+        return Response(
+            {'error': 'Session not found or inactive.'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    if session.wealth >= 4000:
+        return Response(
+            {'error': 'Loan is only available when balance is below ₹4,000.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if loan_type == 'FAMILY':
+        session.wealth += 5000
+        session.happiness -= 5
+        message = "Family helped. You owe them ₹5,000 (No interest)."
+    elif loan_type == 'INSTANT_APP':
+        session.wealth += 10000
+        session.credit_score -= 50
+        session.happiness += 5
+        message = "Loan approved instantly. Interest rate: 40%! (Credit score dropped.)"
+    else:
+        return Response(
+            {'error': 'Invalid loan_type.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Clamp values
+    session.happiness = max(0, min(100, session.happiness))
+    session.credit_score = max(300, min(900, session.credit_score))
+
+    session.save()
+    return Response({
+        'session': GameSessionSerializer(session).data,
+        'message': message
+    })
 
 
 def _calculate_persona(session):

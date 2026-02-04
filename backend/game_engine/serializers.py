@@ -13,7 +13,18 @@ class ScenarioCardSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ScenarioCard
-        fields = ['id', 'title', 'description', 'category', 'difficulty', 'choices']
+        fields = [
+            'id',
+            'title',
+            'description',
+            'title_hi',
+            'description_hi',
+            'title_mr',
+            'description_mr',
+            'category',
+            'difficulty',
+            'choices',
+        ]
 
 
 class GameSessionSerializer(serializers.ModelSerializer):

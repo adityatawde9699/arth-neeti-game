@@ -28,6 +28,7 @@ function App() {
     const [gameOverData, setGameOverData] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [lang, setLang] = useState('en');
 
     // Check for existing session on app load
     useEffect(() => {
@@ -164,6 +165,20 @@ function App() {
         }
     }, [session]);
 
+    const handleTakeLoan = useCallback(async (loanType) => {
+        if (!session) return null;
+        try {
+            const result = await api.takeLoan(session.id, loanType);
+            if (result.session) {
+                setSession(result.session);
+            }
+            return result;
+        } catch (err) {
+            console.error('Failed to take loan:', err);
+            return null;
+        }
+    }, [session]);
+
     // Play again
     const handlePlayAgain = useCallback(() => {
         localStorage.removeItem(SESSION_STORAGE_KEY);
@@ -204,6 +219,32 @@ function App() {
             case GAME_STATE.PLAYING:
                 return (
                     <div className="container" style={{ paddingTop: '2rem', paddingBottom: '2rem' }}>
+                        <div className="language-toggle">
+                            <span>Language:</span>
+                            <div className="language-buttons">
+                                <button
+                                    type="button"
+                                    className={lang === 'en' ? 'active' : ''}
+                                    onClick={() => setLang('en')}
+                                >
+                                    English
+                                </button>
+                                <button
+                                    type="button"
+                                    className={lang === 'hi' ? 'active' : ''}
+                                    onClick={() => setLang('hi')}
+                                >
+                                    हिंदी
+                                </button>
+                                <button
+                                    type="button"
+                                    className={lang === 'mr' ? 'active' : ''}
+                                    onClick={() => setLang('mr')}
+                                >
+                                    मराठी
+                                </button>
+                            </div>
+                        </div>
                         <GameStats session={session} />
                         <ScenarioCard
                             card={currentCard}
@@ -211,6 +252,8 @@ function App() {
                             disabled={isLoading}
                             session={session}
                             onUseLifeline={handleUseLifeline}
+                            onTakeLoan={handleTakeLoan}
+                            lang={lang}
                         />
                     </div>
                 );
@@ -219,6 +262,32 @@ function App() {
                 return (
                     <>
                         <div className="container" style={{ paddingTop: '2rem' }}>
+                            <div className="language-toggle">
+                                <span>Language:</span>
+                                <div className="language-buttons">
+                                    <button
+                                        type="button"
+                                        className={lang === 'en' ? 'active' : ''}
+                                        onClick={() => setLang('en')}
+                                    >
+                                        English
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={lang === 'hi' ? 'active' : ''}
+                                        onClick={() => setLang('hi')}
+                                    >
+                                        हिंदी
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={lang === 'mr' ? 'active' : ''}
+                                        onClick={() => setLang('mr')}
+                                    >
+                                        मराठी
+                                    </button>
+                                </div>
+                            </div>
                             <GameStats session={session} />
                         </div>
                         <FeedbackModal
