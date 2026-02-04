@@ -18,8 +18,7 @@ urlpatterns = [
     path('ai-advice/', views.get_ai_advice, name='ai-advice'),
     path('leaderboard/', views.get_leaderboard, name='leaderboard'),
     
-    # Stock Market 2.0
-    path('invest-stocks/', views.invest_in_stocks, name='invest-stocks'),  # Legacy
+    # Stock Market
     path('buy-stock/', views.buy_stock, name='buy-stock'),
     path('sell-stock/', views.sell_stock, name='sell-stock'),
     path('market-status/<int:session_id>/', views.market_status, name='market-status'),

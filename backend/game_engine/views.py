@@ -234,107 +234,64 @@ def submit_choice(request):
 @api_view(['POST'])
 def take_loan(request):
     """
-    Emergency loan endpoint for low-balance situations.
+    Emergency loan endpoint.
     """
     session_id = request.data.get('session_id')
-    loan_type = request.data.get('loan_type')  # 'FAMILY' or 'INSTANT_APP'
+    loan_type = request.data.get('loan_type')
 
     if not session_id or not loan_type:
-        return Response(
-            {'error': 'session_id and loan_type are required.'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+        return Response({'error': 'Missing params.'}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
         session = GameSession.objects.get(id=session_id, is_active=True)
+        # SECURITY CHECK
+        GameEngine.validate_ownership(request.user, session)
+        
+        # LOGIC
+        result = GameEngine.process_loan(session, loan_type)
+        if 'error' in result:
+             return Response(result, status=status.HTTP_400_BAD_REQUEST)
+             
+        return Response({
+            'session': GameSessionSerializer(session).data,
+            'message': result['message']
+        })
+        
     except GameSession.DoesNotExist:
-        return Response(
-            {'error': 'Session not found or inactive.'},
-            status=status.HTTP_404_NOT_FOUND
-        )
-
-    if session.wealth >= 4000:
-        return Response(
-            {'error': 'Loan is only available when balance is below ₹4,000.'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    if loan_type == 'FAMILY':
-        session.wealth += 5000
-        session.happiness -= 5
-        message = "Family helped. You owe them ₹5,000 (No interest)."
-    elif loan_type == 'INSTANT_APP':
-        session.wealth += 10000
-        session.credit_score -= 50
-        session.happiness += 5
-        message = "Loan approved instantly. Interest rate: 40%! (Credit score dropped.)"
-    else:
-        return Response(
-            {'error': 'Invalid loan_type.'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    # Clamp values
-    session.happiness = max(0, min(100, session.happiness))
-    session.credit_score = max(300, min(900, session.credit_score))
-
-    session.save()
-    return Response({
-        'session': GameSessionSerializer(session).data,
-        'message': message
-    })
+        return Response({'error': 'Session not found.'}, status=status.HTTP_404_NOT_FOUND)
+    except PermissionDenied:
+        return Response({'error': 'Unauthorized.'}, status=status.HTTP_403_FORBIDDEN)
 
 
 @api_view(['POST'])
 def skip_card(request):
     """
     Skip the current scenario card.
-    Skipping has a small penalty: -5 happiness and -10 credit score.
-    The card is recorded as skipped so it won't appear again this session.
     """
     session_id = request.data.get('session_id')
     card_id = request.data.get('card_id')
 
     if not session_id or not card_id:
-        return Response(
-            {'error': 'session_id and card_id are required.'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+        return Response({'error': 'Missing params.'}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
         session = GameSession.objects.get(id=session_id, is_active=True)
-    except GameSession.DoesNotExist:
-        return Response(
-            {'error': 'Session not found or inactive.'},
-            status=status.HTTP_404_NOT_FOUND
-        )
-
-    try:
+        GameEngine.validate_ownership(request.user, session)
+        
         card = ScenarioCard.objects.get(id=card_id)
-    except ScenarioCard.DoesNotExist:
-        return Response(
-            {'error': 'Card not found.'},
-            status=status.HTTP_404_NOT_FOUND
-        )
-
-    # Apply skip penalty
-    session.happiness = max(0, session.happiness - 5)
-    session.credit_score = max(300, session.credit_score - 10)
-
-    # Record as "skipped" choice so card won't appear again
-    PlayerChoice.objects.create(
-        session=session,
-        card=card,
-        choice=None  # Null choice indicates skip
-    )
-
-    session.save()
-
-    return Response({
-        'session': GameSessionSerializer(session).data,
-        'message': 'Question skipped! (-5 happiness, -10 credit score)',
-        'skipped': True
-    })
+        
+        result = GameEngine.process_skip(session, card)
+        
+        return Response({
+            'session': GameSessionSerializer(session).data,
+            'message': result['message'],
+            'skipped': True
+        })
+        
+    except (GameSession.DoesNotExist, ScenarioCard.DoesNotExist):
+        return Response({'error': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+    except PermissionDenied:
+        return Response({'error': 'Unauthorized.'}, status=status.HTTP_403_FORBIDDEN)
 
 
 
@@ -483,84 +440,37 @@ def get_leaderboard(request):
 
     leaderboard = []
     for i, session in enumerate(top_sessions, 1):
+        # Calculate Portfolio Value
+        portfolio_val = 0
+        if session.portfolio and session.market_prices:
+             for sector, units in session.portfolio.items():
+                 price = session.market_prices.get(sector, 0)
+                 portfolio_val += (units * price)
+        
+        total_wealth = session.wealth + int(portfolio_val)
+
         # Calculate a composite score
         score = (
             session.financial_literacy * 10 +
-            max(0, session.wealth) // 1000 +
+            max(0, total_wealth) // 1000 +
             session.credit_score // 10
         )
+        
+        # Use GameEngine for persona (Fixed 500 Error)
+        persona_data = GameEngine.generate_persona(session)
+        
         leaderboard.append({
             'rank': i,
             'player_name': session.user.username.replace('Guest_', 'Player '),
             'score': score,
-            'wealth': session.wealth,
+            'wealth': total_wealth, # Display Net Worth instead of just Cash
             'credit_score': session.credit_score,
-            'persona': _calculate_persona(session)['title'],
+            'persona': persona_data['persona'],
         })
 
     return Response({
         'leaderboard': leaderboard
     })
-
-
-@api_view(['POST'])
-def invest_in_stocks(request):
-    """
-    Invest a portion of wealth in stocks.
-    """
-    session_id = request.data.get('session_id')
-    amount = request.data.get('amount', 0)
-
-    if not session_id:
-        return Response(
-            {'error': 'session_id is required.'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    try:
-        amount = int(amount)
-    except (ValueError, TypeError):
-        return Response(
-            {'error': 'Amount must be a valid number.'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    try:
-        session = GameSession.objects.get(id=session_id, is_active=True)
-    except GameSession.DoesNotExist:
-        return Response(
-            {'error': 'Session not found or inactive.'},
-            status=status.HTTP_404_NOT_FOUND
-        )
-
-    if amount <= 0:
-        return Response(
-            {'error': 'Amount must be positive.'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    if amount > session.wealth:
-        return Response(
-            {'error': 'Insufficient funds.'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    # Legacy: Transfer from wealth to general investment pool
-    session.wealth -= amount
-    session.save()
-
-    return Response({
-        'message': f'Invested ₹{amount:,} in stocks!',
-        'session': GameSessionSerializer(session).data,
-    })
-
-
-# ==================== STOCK MARKET 2.0 ====================
-
-STOCK_SECTORS = ['gold', 'tech', 'real_estate']
-
-
-
 
 
 @api_view(['POST'])
@@ -573,47 +483,27 @@ def buy_stock(request):
     if not session_id:
         return Response({'error': 'session_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    if sector not in STOCK_SECTORS:
-        return Response(
-            {'error': f'Invalid sector. Choose from: {", ".join(STOCK_SECTORS)}'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    try:
-        amount = int(amount)
-        if amount <= 0:
-            raise ValueError()
-    except (ValueError, TypeError):
-        return Response({'error': 'Amount must be a positive number.'}, status=status.HTTP_400_BAD_REQUEST)
-
     try:
         session = GameSession.objects.get(id=session_id, is_active=True)
+        GameEngine.validate_ownership(request.user, session)
+        
+        amount = int(amount) # Front end sends invest amount in Rupees
+        result = GameEngine.buy_stock(session, sector, amount)
+        
+        if 'error' in result:
+             return Response(result, status=status.HTTP_400_BAD_REQUEST)
+             
+        return Response({
+            'session': GameSessionSerializer(session).data,
+            'message': result['message']
+        })
+
+    except (ValueError, TypeError):
+        return Response({'error': 'Invalid amount.'}, status=status.HTTP_400_BAD_REQUEST)
     except GameSession.DoesNotExist:
         return Response({'error': 'Session not found.'}, status=status.HTTP_404_NOT_FOUND)
-
-    if amount > session.wealth:
-        return Response({'error': 'Insufficient funds.'}, status=status.HTTP_400_BAD_REQUEST)
-
-    # Calculate units at current price
-    price = session.market_prices.get(sector, 100)
-    units = amount / price
-    
-    # Update portfolio and wealth
-    session.wealth -= amount
-    current_units = session.portfolio.get(sector, 0)
-    session.portfolio[sector] = current_units + units
-    session.save()
-
-    return Response({
-        'message': f'Bought {units:.2f} units of {sector.upper()} at ₹{price}/unit',
-        'session': GameSessionSerializer(session).data,
-        'purchase': {
-            'sector': sector,
-            'units': units,
-            'price_per_unit': price,
-            'total_spent': amount
-        }
-    })
+    except PermissionDenied:
+        return Response({'error': 'Unauthorized.'}, status=status.HTTP_403_FORBIDDEN)
 
 
 @api_view(['POST'])
@@ -621,52 +511,33 @@ def sell_stock(request):
     """Sell units of a stock sector."""
     session_id = request.data.get('session_id')
     sector = request.data.get('sector', '').lower()
-    units = request.data.get('units', 0)
+    amount = request.data.get('amount', 0) # Units
 
     if not session_id:
         return Response({'error': 'session_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    if sector not in STOCK_SECTORS:
-        return Response(
-            {'error': f'Invalid sector. Choose from: {", ".join(STOCK_SECTORS)}'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    try:
-        units = float(units)
-        if units <= 0:
-            raise ValueError()
-    except (ValueError, TypeError):
-        return Response({'error': 'Units must be a positive number.'}, status=status.HTTP_400_BAD_REQUEST)
-
     try:
         session = GameSession.objects.get(id=session_id, is_active=True)
+        GameEngine.validate_ownership(request.user, session)
+        
+        result = GameEngine.sell_stock(session, sector, amount)
+        
+        if 'error' in result:
+             return Response(result, status=status.HTTP_400_BAD_REQUEST)
+             
+        return Response({
+            'session': GameSessionSerializer(session).data,
+            'message': result['message']
+        })
+
+    except (ValueError, TypeError):
+        return Response({'error': 'Invalid amount.'}, status=status.HTTP_400_BAD_REQUEST)
     except GameSession.DoesNotExist:
         return Response({'error': 'Session not found.'}, status=status.HTTP_404_NOT_FOUND)
+    except PermissionDenied:
+        return Response({'error': 'Unauthorized.'}, status=status.HTTP_403_FORBIDDEN)
 
-    current_units = session.portfolio.get(sector, 0)
-    if units > current_units:
-        return Response({'error': f'Insufficient {sector} units. You have {current_units:.2f}'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Calculate sale value at current price
-    price = session.market_prices.get(sector, 100)
-    sale_value = int(units * price)
-    
-    # Update portfolio and wealth
-    session.wealth += sale_value
-    session.portfolio[sector] = current_units - units
-    session.save()
-
-    return Response({
-        'message': f'Sold {units:.2f} units of {sector.upper()} for ₹{sale_value:,}',
-        'session': GameSessionSerializer(session).data,
-        'sale': {
-            'sector': sector,
-            'units': units,
-            'price_per_unit': price,
-            'total_received': sale_value
-        }
-    })
 
 
 @api_view(['GET'])
@@ -680,7 +551,11 @@ def market_status(request, session_id):
     # Calculate portfolio value
     portfolio_value = 0
     holdings = []
-    for sector in STOCK_SECTORS:
+    
+    # We need to know the sectors. GameEngine defines them.
+    stock_sectors = ['gold', 'tech', 'real_estate'] # Or import from GameEngine.CONFIG ideally
+    
+    for sector in stock_sectors:
         units = session.portfolio.get(sector, 0)
         price = session.market_prices.get(sector, 100)
         value = int(units * price)

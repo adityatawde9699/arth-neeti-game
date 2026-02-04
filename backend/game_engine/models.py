@@ -40,6 +40,8 @@ class GameSession(models.Model):
     # --- NEW: Stock Market 2.0 ---
     # Market prices for each sector (starts at 100)
     market_prices = models.JSONField(default=dict)  # {"gold": 100, "tech": 100, "real_estate": 100}
+    # Market trends (Momentum) - stores integer -5 to +5 indicating current trend
+    market_trends = models.JSONField(default=dict)  # {"gold": 2, "tech": -5, "real_estate": 0}
     # Player's portfolio (units held per sector)
     portfolio = models.JSONField(default=dict)  # {"gold": 0, "tech": 0, "real_estate": 0}
     
