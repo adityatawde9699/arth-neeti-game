@@ -8,7 +8,7 @@ export default defineConfig({
     allowedHosts: true,
     headers: {
       // Keep this to allow the popup to communicate
-      "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
+      // "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
       // REMOVE the Embedder-Policy to stop the browser from blocking the popup
       // "Cross-Origin-Embedder-Policy": "require-corp", 
     },

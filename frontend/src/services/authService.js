@@ -53,22 +53,22 @@ export const loginWithGoogle = async () => {
         const provider = new GoogleAuthProvider();
         provider.addScope('profile');
         provider.addScope('email');
-        
+
         // Use popup instead of redirect for better UX
         const result = await signInWithPopup(auth, provider);
         console.log('✅ Google login successful:', result.user.email);
         return result.user;
     } catch (error) {
         console.error('❌ Google login error:', error);
-        
+
         // If popup was blocked, fallback to redirect
-        if (error.code === 'auth/popup-blocked') {
-            console.log('⚠️ Popup blocked, falling back to redirect');
+        if (error.code === 'auth/popup-blocked' || error.code === 'auth/network-request-failed' || error.message.includes('closed')) {
+            console.log('⚠️ Popup failed or blocked, switching to redirect strategy...');
             const provider = new GoogleAuthProvider();
             await signInWithRedirect(auth, provider);
             return null; // Will redirect
         }
-        
+
         throw new Error(getFirebaseErrorMessage(error.code));
     }
 };
