@@ -47,9 +47,12 @@ class GameSession(models.Model):
     market_trends = models.JSONField(default=dict)  # {"gold": 2, "tech": -5, "real_estate": 0}
     # Player's portfolio (units held per sector)
     portfolio = models.JSONField(default=dict)  # {"gold": 0, "tech": 0, "real_estate": 0}
+    # NEW: Purchase history for profit calculation
+    purchase_history = models.JSONField(default=list)  # [{"sector": "tech", "units": 10, "price": 100, "month": 1}]
     
     # --- NEW: Recurring Expenses ---
-    recurring_expenses = models.IntegerField(default=0)  # Monthly drain
+    # This acts as a CACHE for the total monthly drain, updated by advance_month
+    recurring_expenses = models.IntegerField(default=0)
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

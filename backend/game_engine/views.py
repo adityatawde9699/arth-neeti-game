@@ -150,38 +150,26 @@ def get_card(request, session_id):
             status=status.HTTP_404_NOT_FOUND
         )
 
-    # Get cards that haven't been shown in this session and are appropriate for current month
-    shown_card_ids = PlayerChoice.objects.filter(
-        session=session
-    ).values_list('card_id', flat=True)
+    # Use GameEngine for smart selection
+    card = GameEngine.get_next_card(session)
 
-    available_cards = ScenarioCard.objects.filter(
-        is_active=True,
-        min_month__lte=session.current_month
-    ).exclude(id__in=shown_card_ids)
-
-    if not available_cards.exists():
-        # If all cards shown, allow repeats (or end game)
-        available_cards = ScenarioCard.objects.filter(
-            is_active=True,
-            min_month__lte=session.current_month
-        )
-
-    if not available_cards.exists():
+    if not card:
         return Response({
             'message': 'No more scenarios available!',
             'game_complete': True,
             'session': GameSessionSerializer(session).data
         })
 
-    # Weighted random selection based on difficulty
-    card = random.choice(list(available_cards))
-
     serializer = ScenarioCardSerializer(card)
+    
+    # Calculate remaining (approximation)
+    remaining = ScenarioCard.objects.filter(min_month__lte=session.current_month).count()
+    
     return Response({
         'card': serializer.data,
         'session': GameSessionSerializer(session).data,
-        'cards_remaining': available_cards.count() - 1
+        # Just return a placeholder or calculate if needed
+        'cards_remaining': remaining 
     })
 
 
@@ -350,23 +338,16 @@ def use_lifeline(request):
             status=status.HTTP_404_NOT_FOUND
         )
 
-    # Deduct lifeline
-    session.lifelines -= 1
-    session.save()
-
-    # Get recommended choice hints
-    choices = card.choices.all()
-    hints = [
-        {
-            'choice_id': choice.id,
-            'is_recommended': choice.is_recommended
-        }
-        for choice in choices
-    ]
+    # Delegate to Engine
+    result = GameEngine.use_lifeline(session, card)
+    
+    if 'error' in result:
+        return Response({'error': result['error']}, status=status.HTTP_400_BAD_REQUEST)
 
     return Response({
-        'hints': hints,
-        'lifelines_remaining': session.lifelines,
+        'hint': result['hint'],
+        'choice_id': result.get('choice_id'), # Add this to frontend
+        'lifelines_remaining': result['lifelines_remaining'],
         'session': GameSessionSerializer(session).data
     })
 
