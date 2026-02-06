@@ -13,7 +13,7 @@ export default function GameHeader() {
         <header className="game-header">
             <div className="game-header-inner">
                 <div className="game-header-brand">
-                    <span className="game-header-icon" aria-hidden>✦</span>
+                    <span className="game-header-icon" aria-hidden>₹</span>
                     <h1 className="game-header-title">Arth Neeti</h1>
                 </div>
                 <button

@@ -2,7 +2,7 @@
 
 > A card-based financial decision-making game that teaches young Indians smart money habits through real-life scenarios.
 
-![Version](https://img.shields.io/badge/version-1.0.0-brightgreen.svg)
+![Version](https://img.shields.io/badge/version-2.0.0-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-Proprietary-red.svg)
 ![Python](https://img.shields.io/badge/python-3.11+-green.svg)
 ![React](https://img.shields.io/badge/react-18+-61DAFB.svg)
@@ -12,19 +12,22 @@
 Arth-Neeti ("Financial Wisdom" in Hindi) is an interactive game where players make financial decisions through scenario cards. Each choice impacts their:
 
 - 💰 **Wealth** - Your bank balance
-- 😊 **Happiness** - Life satisfaction
-- 📊 **Credit Score** - Financial reputation
+- 😊 **Well-being** - Life satisfaction & health
+- 📊 **Credit Score** - Financial reputation (300-900)
 
 Complete 12 months of decisions to discover your **Financial Persona**!
 
-## ✨ Features
+## ✨ Features (v2.0)
 
 | Feature | Description |
 |---------|-------------|
 | 🃏 **36+ Scenario Cards** | Real-life situations: investments, scams, social pressure |
-| 💡 **Lifelines (Ask NCFE)** | 3 hints per game reveal recommended choices |
+| 📈 **Stock Market** | Buy/sell stocks in Tech, Green Energy, and Gold |
+| 💳 **Loan Management** | Take family or bank loans to manage cash flow |
+| 🏆 **Leaderboard** | Compete for the highest wealth and credit score |
+| 💡 **Lifelines** | "Ask NCFE" hints and "Phone a Friend" |
+| 📊 **Detailed Reports** | In-depth analysis of your financial performance |
 | 🔊 **Audio Feedback** | Sound effects for gains/losses |
-| 📱 **Session Persistence** | Resume games after browser refresh |
 | 🖨️ **Printable Certificate** | Download your Financial Health Report |
 | 🐳 **Docker Ready** | One-command deployment |
 
@@ -80,8 +83,9 @@ Built for the **NCFE Financial Literacy Hackathon**, Arth-Neeti teaches:
 
 - Emergency fund importance
 - Investment basics (SIP, ELSS, NPS)
+- **Stock Market logic** (Buy Low, Sell High)
 - Scam awareness (MLM, Ponzi, phishing)
-- Credit score management
+- Credit score & Debt management
 - Budgeting and lifestyle choices
 
 ## 🛠️ Tech Stack

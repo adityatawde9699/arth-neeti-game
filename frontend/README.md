@@ -40,10 +40,10 @@ START → PLAYING ↔ FEEDBACK → GAME_OVER
 ### GameStats.jsx
 Displays player stats with visual feedback:
 - 💰 Wealth bar (green/red flash on change)
-- 😊 Happiness bar
-- 📊 Credit Score bar
+- 😊 Well-being bar (renamed from Happiness)
+- 📊 Credit Score bar (RBI standards 300-900)
+- 🧾 Monthly Bills indicator
 - 📅 Month indicator (calendar style)
-- 🔊 Sound effects on wealth changes
 
 ### ScenarioCard.jsx
 Card display with:
@@ -53,11 +53,17 @@ Card display with:
 - **"💡 Ask NCFE"** lifeline button
 - Recommended choice highlighting (⭐ badge)
 
+### StockTicker.jsx
+- Real-time stock market simulation
+- Buy/Sell interface for Tech, Green Energy, and Gold
+- Portfolio tracking
+
 ### GameOverScreen.jsx
-End game display:
-- Financial Persona result
-- Final stats summary
-- **📄 Download Report** button
+End game display (Redesigned v2.0):
+- Animated Financial Persona result
+- **Tabbed Reports:** Overview, Analysis, Recommendations
+- **Achievements:** Unlockable badges
+- **Leaderboard:** Top 10 players list
 - **🖨️ Print Certificate** functionality
 
 ## 🎨 Styling

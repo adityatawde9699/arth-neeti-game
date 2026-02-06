@@ -29,11 +29,22 @@ Tracks a player's game state.
 |-------|------|-------------|
 | `user` | ForeignKey | Player account |
 | `wealth` | Integer | Current balance (starts: ₹25,000) |
-| `happiness` | Integer | 0-100 scale |
-| `credit_score` | Integer | 300-900 range |
+| `happiness` | Integer | 0-100 scale (Well-being) |
+| `credit_score` | Integer | 300-900 range (CIBIL norm) |
+| `portfolio` | JSONField | Stock holdings: `{"TECH": 10, ...}` |
 | `lifelines` | Integer | Hints remaining (starts: 3) |
 | `current_month` | Integer | Game progress (1-12) |
 | `is_active` | Boolean | Game in progress |
+
+### PlayerProfile
+Persistent player statistics.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `highest_credit_score` | Integer | Best anytime credit score |
+| `highest_happiness` | Integer | Best well-being index |
+| `highest_stock_profit` | Integer | Best portfolio value |
+| `financial_literacy` | Integer | Knowledge score (0-100) |
 
 ### ScenarioCard
 Financial decision scenarios.

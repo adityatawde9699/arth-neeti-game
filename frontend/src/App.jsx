@@ -327,7 +327,7 @@ function GameComponent() {
 function AppRoutes() {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
-    const { session, startGame, updateSession } = useSession();
+    const { session, startGame, updateSession, clearSession } = useSession();
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -354,12 +354,12 @@ function AppRoutes() {
     }, [navigate]);
 
     const handleLogout = useCallback(() => {
+        clearSession();
         localStorage.removeItem('auth_token');
         localStorage.removeItem('username');
-        localStorage.removeItem(SESSION_STORAGE_KEY);
         setIsAuthenticated(false);
-        navigate('/auth/login');
-    }, [navigate]);
+        navigate('/auth/login', { replace: true });
+    }, [navigate, clearSession]);
 
     const handleBuyStock = useCallback(async (sector, amount) => {
         if (!session) return null;
@@ -437,7 +437,7 @@ function AppRoutes() {
                 } />
                 <Route path="/profile" element={
                     <ProtectedRoute>
-                        <ProfileScreen />
+                        <ProfileScreen onLogout={handleLogout} />
                     </ProtectedRoute>
                 } />
                 <Route path="*" element={<Navigate to="/" replace />} />

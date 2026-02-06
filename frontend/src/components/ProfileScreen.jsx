@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import './ProfileScreen.css';
 
-export default function ProfileScreen({ onBack }) {
+export default function ProfileScreen({ onBack, onLogout }) {
     const navigate = useNavigate();
     const [profileData, setProfileData] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -134,6 +134,13 @@ export default function ProfileScreen({ onBack }) {
                 </div>
             </div>
 
+            {/* Logout Action */}
+            <div className="profile-actions">
+                <button onClick={onLogout} className="logout-button">
+                    <span>🚪</span> Logout
+                </button>
+            </div>
+
             {/* Tabs */}
             <div className="tabs-container">
                 <button
@@ -209,14 +216,14 @@ export default function ProfileScreen({ onBack }) {
                                         <div className="table-cell">
                                             <div className="score-container">
                                                 <span className={`score-value ${game.financial_literacy_score >= 80 ? 'excellent' :
-                                                        game.financial_literacy_score >= 50 ? 'good' : 'poor'
+                                                    game.financial_literacy_score >= 50 ? 'good' : 'poor'
                                                     }`}>
                                                     {game.financial_literacy_score || 0}
                                                 </span>
                                                 <div className="score-bar">
                                                     <div
                                                         className={`score-fill ${game.financial_literacy_score >= 80 ? 'excellent' :
-                                                                game.financial_literacy_score >= 50 ? 'good' : 'poor'
+                                                            game.financial_literacy_score >= 50 ? 'good' : 'poor'
                                                             }`}
                                                         style={{ width: `${Math.min(100, game.financial_literacy_score || 0)}%` }}
                                                     ></div>
@@ -225,7 +232,7 @@ export default function ProfileScreen({ onBack }) {
                                         </div>
                                         <div className="table-cell">
                                             <span className={`outcome-badge ${game.end_reason === 'COMPLETED' ? 'completed' :
-                                                    game.end_reason === 'BANKRUPTCY' ? 'bankruptcy' : 'other'
+                                                game.end_reason === 'BANKRUPTCY' ? 'bankruptcy' : 'other'
                                                 }`}>
                                                 {game.end_reason?.replace('_', ' ') || 'Unknown'}
                                             </span>
