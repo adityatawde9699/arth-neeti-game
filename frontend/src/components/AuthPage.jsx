@@ -9,10 +9,10 @@ const GoogleLoginButton = ({ onLoginStart, onLoginEnd, onError, onSuccess }) => 
         try {
             onLoginStart();
             await loginWithGoogle();
-            // No onSuccess called here because redirect happens
+            onSuccess();
         } catch (err) {
             onError('Google login failed: ' + err.message);
-            onLoginEnd(); // Only end if error, otherwise page reloads
+            onLoginEnd();
         }
     };
 
