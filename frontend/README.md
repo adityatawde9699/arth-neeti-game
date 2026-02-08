@@ -1,6 +1,7 @@
-# Frontend - Arth-Neeti Game UI
+# Frontend - Arth-Neeti Game UI (v3.0.0)
 
 React + Vite application for the Arth-Neeti financial literacy game.
+Features a responsive dashboard, real-time stock ticker, and bilingual support.
 
 ## 🏗️ Architecture
 
@@ -8,79 +9,52 @@ React + Vite application for the Arth-Neeti financial literacy game.
 frontend/
 ├── src/
 │   ├── api/
-│   │   └── index.js        # API client
+│   │   └── index.js        # Axios Client (Interceptors for Auth)
 │   ├── components/
-│   │   ├── GameStats.jsx      # Health bars + month display
-│   │   ├── ScenarioCard.jsx   # Card UI + lifeline button
-│   │   ├── FeedbackModal.jsx  # Choice feedback
-│   │   ├── StartScreen.jsx    # Welcome screen
-│   │   └── GameOverScreen.jsx # Results + certificate
-│   ├── utils/
-│   │   └── sound.js        # Audio feedback
-│   ├── App.jsx             # Main app + state management
-│   └── App.css             # Styles
-├── index.html
+│   │   ├── GameStats.jsx      # HUD (Wealth, Well-being, Credit)
+│   │   ├── BudgetDisplay.jsx  # Monthly Cashflow Visualization
+│   │   ├── StockTicker.jsx    # Real-time Market Graph
+│   │   ├── ScenarioCard.jsx   # Main Decision UI
+│   │   ├── ProfileScreen.jsx  # User Stats & History
+│   │   └── GameOverScreen.jsx # Final Report & Certificate
+│   ├── pages/
+│   │   ├── StockMarketPage.jsx # Full-screen trading view
+│   │   └── LoanPage.jsx        # Loan management interface
+│   ├── contexts/
+│   │   ├── AuthContext.jsx      # Firebase User State
+│   │   └── SessionContext.jsx   # Game Session State
+│   └── App.jsx                  # Routing & Layout
 └── vite.config.js
 ```
 
-## 🧩 Components
+## 🧩 Key Features
 
-### App.jsx
-Main component managing game state machine:
+### 🎮 Game Interface
+*   **HUD**: Persistent top bar showing Wealth, Happiness, and Credit Score.
+*   **Budget Preview**: Visual breakdown of income vs expenses (Rent, Food, etc.).
+*   **Bilingual Toggle**: Switch between English (En) and Hindi (Hi) instantly.
 
-```
-START → PLAYING ↔ FEEDBACK → GAME_OVER
-```
+### 📈 Stock Market Page
+*   **Three Sectors**: Gold, Technology, Real Estate.
+*   **Interactive Graphs**: Visual price history for the last 12 months.
+*   **Trading Actions**: Buy/Sell buttons with validation (insufficient funds, etc.).
 
-**Key Features:**
-- Session persistence via `localStorage`
-- Automatic session resume on page load
-- Lifeline handling
+### 💳 Loan & Banking
+*   **Loan Options**: 
+    *   *Family Loan*: Low interest, social pressure.
+    *   *Instant App*: High interest, easy approval.
+*   **Repayment**: Automatic deductions from monthly salary.
 
-### GameStats.jsx
-Displays player stats with visual feedback:
-- 💰 Wealth bar (green/red flash on change)
-- 😊 Well-being bar (renamed from Happiness)
-- 📊 Credit Score bar (RBI standards 300-900)
-- 🧾 Monthly Bills indicator
-- 📅 Month indicator (calendar style)
-
-### ScenarioCard.jsx
-Card display with:
-- Category badge (color-coded)
-- Description
-- Choice buttons with impact preview
-- **"💡 Ask NCFE"** lifeline button
-- Recommended choice highlighting (⭐ badge)
-
-### StockTicker.jsx
-- Real-time stock market simulation
-- Buy/Sell interface for Tech, Green Energy, and Gold
-- Portfolio tracking
-
-### GameOverScreen.jsx
-End game display (Redesigned v2.0):
-- Animated Financial Persona result
-- **Tabbed Reports:** Overview, Analysis, Recommendations
-- **Achievements:** Unlockable badges
-- **Leaderboard:** Top 10 players list
-- **🖨️ Print Certificate** functionality
+### 👤 Profile & Reports
+*   **Player History**: List of all past games and scores.
+*   **Achievements**: Badges like "Debt Free", "Wealthy", "Survivor".
+*   **Printable Report**: A detailed "Financial Health Report" generated at Game Over.
 
 ## 🎨 Styling
 
-### Design System
-- Dark theme with glassmorphism
-- Gradient accents (purple/pink/gold)
-- Smooth animations
-
-### Key CSS Classes
-| Class | Purpose |
-|-------|---------|
-| `.flash-green` | Positive stat change animation |
-| `.flash-red` | Negative stat change animation |
-| `.lifeline-btn` | Golden gradient hint button |
-| `.recommended` | Green border for NCFE choice |
-| `@media print` | Certificate print styles |
+*   **CSS Modules**: Component-scoped styles (e.g., `ProfileScreen.css`).
+*   **Animations**: `framer-motion` used for transitions.
+*   **Glassmorphism**: Dark theme with translucent cards and neon accents.
 
 ## 🔌 API Integration
 
@@ -89,22 +63,16 @@ End game display (Redesigned v2.0):
 VITE_API_URL=http://localhost:8000/api
 ```
 
-### API Functions
-```javascript
-api.startGame()           // Create session
-api.getCard(sessionId)    // Get next card
-api.submitChoice(sessionId, cardId, choiceId)
-api.getSession(sessionId) // Resume session
-api.useLifeline(sessionId, cardId)  // Get hints
-```
+### Authentication
+Uses **Firebase Auth SDK** (Google Sign-In + Email/Password).
+Token is automatically injected into `Authorization` headers via Axios interceptors.
 
 ## 🧪 Development
 
 ```bash
 npm install
-npm run dev     # Start dev server
+npm run dev     # Start dev server (localhost:5173)
 npm run build   # Production build
-npm run preview # Preview production build
 ```
 
 ## 🐳 Docker
@@ -113,15 +81,3 @@ npm run preview # Preview production build
 docker build -t arth-neeti-frontend .
 docker run -p 5173:5173 arth-neeti-frontend
 ```
-
-## 📱 Responsive Design
-
-- Desktop optimized
-- Mobile-friendly stat bars
-- Touch-friendly buttons
-
-## ⚡ Performance
-
-- Vite for fast HMR
-- Lazy loading ready
-- Minimal dependencies

@@ -1,6 +1,7 @@
-# Backend - Arth-Neeti Game Engine
+# Backend - Arth-Neeti Game Engine (v3.0.0)
 
 Django REST API powering the Arth-Neeti financial literacy game.
+Includes Stock Market simulation, AI Advisory, and Firebase Authentication.
 
 ## 🏗️ Architecture
 
@@ -10,10 +11,13 @@ backend/
 │   ├── settings.py       # Configuration
 │   └── urls.py           # Root URL routing
 ├── game_engine/          # Main app
-│   ├── models.py         # Database models
+│   ├── models.py         # Database models (Session, Stocks, Expenses)
 │   ├── views.py          # API endpoints
 │   ├── serializers.py    # DRF serializers
-│   ├── urls.py           # App routes
+│   ├── advisor.py        # Gemini AI + Fallback Logic
+│   ├── firebase_auth.py  # Auth Middleware
+│   ├── ml/               # Machine Learning
+│   │   └── predictor.py  # Stock trend prediction logic
 │   └── management/
 │       └── commands/
 │           └── seed_scenarios.py  # Card seeder
@@ -22,102 +26,70 @@ backend/
 
 ## 📊 Data Models
 
-### GameSession
-Tracks a player's game state.
+### Core Game
+| Model | Description |
+|-------|-------------|
+| `GameSession` | Tracks wealth, happiness, credit score, and current month. |
+| `PlayerProfile` | Persistent user stats across multiple games (High scores, Badges). |
+| `ScenarioCard` | The decision events presented to the player. |
+| `Choice` | Options for each card with specific impacts. |
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `user` | ForeignKey | Player account |
-| `wealth` | Integer | Current balance (starts: ₹25,000) |
-| `happiness` | Integer | 0-100 scale (Well-being) |
-| `credit_score` | Integer | 300-900 range (CIBIL norm) |
-| `portfolio` | JSONField | Stock holdings: `{"TECH": 10, ...}` |
-| `lifelines` | Integer | Hints remaining (starts: 3) |
-| `current_month` | Integer | Game progress (1-12) |
-| `is_active` | Boolean | Game in progress |
+### Stock Market 2.0
+| Model | Description |
+|-------|-------------|
+| `StockHistory` | Pre-generated price points for Tech, Gold, Real Estate (Ground Truth). |
+| `FuturesContract` | Tracks short-selling positions (hedge interactions). |
+| `MarketEvent` | News items that trigger price fluctuations (e.g., "Tech Bubble Burst"). |
 
-### PlayerProfile
-Persistent player statistics.
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `highest_credit_score` | Integer | Best anytime credit score |
-| `highest_happiness` | Integer | Best well-being index |
-| `highest_stock_profit` | Integer | Best portfolio value |
-| `financial_literacy` | Integer | Knowledge score (0-100) |
-
-### ScenarioCard
-Financial decision scenarios.
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `title` | String | Scenario name |
-| `description` | Text | Situation details |
-| `category` | Enum | NEEDS, WANTS, INVESTMENT, TRAP, etc. |
-| `difficulty` | Integer | 1-5 scale |
-| `min_month` | Integer | Earliest month to appear |
-
-### Choice
-Options for each scenario.
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `text` | String | Choice description |
-| `wealth_impact` | Integer | Money change |
-| `happiness_impact` | Integer | Happiness change |
-| `credit_impact` | Integer | Credit score change |
-| `is_recommended` | Boolean | NCFE-approved choice |
-| `feedback` | Text | Educational explanation |
+### Banking & Finance
+| Model | Description |
+|-------|-------------|
+| `RecurringExpense` | Monthly drains like Rent, Netflix, Loan EMIs. |
+| `Loan` | (In Session) Tracks active loans and interest accumulation. |
 
 ## 🔌 API Endpoints
 
+### Game Flow
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/start-game/` | Create new session |
-| GET | `/api/get-card/{session_id}/` | Get next scenario |
-| POST | `/api/submit-choice/` | Submit player choice |
-| GET | `/api/session/{session_id}/` | Get session state |
-| POST | `/api/use-lifeline/` | Use hint (costs 1 lifeline) |
+| POST | `/api/start-game/` | Create new session (Resets state) |
+| GET | `/api/get-card/{session_id}/` | Get next scenario card |
+| POST | `/api/submit-choice/` | Submit decision & update stats |
+| GET | `/api/session/{session_id}/` | Get full HUD state (Wealth, Happiness) |
+| GET | `/api/leaderboard/` | Get top 10 players |
 
-### Example: Start Game
-```bash
-curl -X POST http://localhost:8000/api/start-game/
-```
+### Stock Market
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/buy-stock/` | Buy units of a sector |
+| POST | `/api/sell-stock/` | Sell units & realize profit/loss |
 
-Response:
-```json
-{
-  "session": {
-    "id": 1,
-    "wealth": 25000,
-    "happiness": 100,
-    "credit_score": 700,
-    "lifelines": 3,
-    "current_month": 1
-  }
-}
-```
+### Banking
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/take-loan/` | borrow money (Family or Instant App) |
 
-## 🎮 Game Logic
+### AI Advisory
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/get-ai-advice/` | Get context-aware advice from Gemini 1.5 Flash |
 
-### Month Progression
-- 3 cards per month
-- 12 months total = 36 cards for complete game
+## 🤖 AI Integration
 
-### Win/Loss Conditions
-| Condition | Trigger | Result |
-|-----------|---------|--------|
-| COMPLETED | Month > 12 | Victory! |
-| BANKRUPTCY | Wealth ≤ 0 | Game Over |
-| BURNOUT | Happiness ≤ 0 | Game Over |
+### Provider: Google Gemini 1.5 Flash
+The `advisor.py` module constructs a prompt with:
+1.  Player's current financials (Wealth, Salary).
+2.  The specific scenario and choices.
+3.  Request for "Friendly Indian Financial Advisor" persona.
 
-### Financial Personas
-Based on `financial_literacy` score:
-- 80+ → Warren Buffett
-- 60-79 → Cautious Saver
-- 40-59 → Balanced Spender
-- 20-39 → YOLO Enthusiast
-- <20 → FOMO Victim
+**Fallback:** If the API Key is missing or quota exceeded, a Keyword-based heuristic engine returns pre-written advice safe for gameplay.
+
+## 🔐 Authentication
+
+Uses **Firebase Authentication**:
+1.  Frontend sends ID Token in `Authorization: Bearer <token>`.
+2.  `firebase_auth.py` Middleware validates token with Firebase Admin SDK.
+3.  Syncs Firebase UID to Django `User` model automatically.
 
 ## 🧪 Testing
 
@@ -127,13 +99,9 @@ python manage.py test game_engine
 
 ## 🚀 Deployment
 
-### Environment Variables
-```env
-DEBUG=False
-SECRET_KEY=your-production-key
-DATABASE_URL=postgres://user:pass@host:5432/dbname
-DJANGO_ALLOWED_HOSTS=yourdomain.com
-```
+### Dependencies
+*   Python 3.11+
+*   Allowed Hosts, Secret Key, Debug Mode via Environment Variables.
 
 ### Docker
 ```bash

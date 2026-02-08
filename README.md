@@ -7,12 +7,16 @@
 [![React 18](https://img.shields.io/badge/react-18-61DAFB.svg)](https://reactjs.org/)
 [![Vite](https://img.shields.io/badge/vite-4.0+-646CFF.svg)](https://vitejs.dev/)
 [![Firebase](https://img.shields.io/badge/firebase-auth-orange.svg)](https://firebase.google.com/)
+[![License](https://img.shields.io/badge/license-Proprietary-red.svg)](./LICENSE)
 
 ---
 
 ## 📖 Project Overview
 
-**Arth-Neeti** ("Financial Policy" or "Wisdom") is a turn-based role-playing game where players navigate the first 12 months of their professional life. The system simulates a complete financial ecosystem including:
+**Arth-Neeti** ("Financial Policy" or "Wisdom") is a turn-based role-playing game where players navigate the first 12 months of their professional life.
+
+### 🚀 Version 3.0.0: The "Market Mogul" Update
+The latest release introduces a complete economic simulation, allowing players to trade stocks, manage debt, and receive AI-powered financial advice.
 
 *   **Income & Expenses**: Managing a fixed salary against recurring bills (rent, utilities) and unexpected costs.
 *   **Investment**: Real-time stock market simulation with sector-specific trends (Tech, Green Energy, Gold).
@@ -206,6 +210,13 @@ Based on the current architecture, these extensions are viable:
 2.  **Multi-Language Content**: Fully populate the `title_hi` and `description_hi` fields in the database for complete Hindi support.
 3.  **Real-Time Stock Updates**: Replace the per-turn stock update with a WebSocket connection (using Django Channels) for "live" ticker feels.
 4.  **Social Features**: Share "Financial Persona" directly to social media using the `ProfileScreen` data.
+
+---
+
+## 🙏 Acknowledgments
+
+*   **National Centre for Financial Education (NCFE)**: For inspiration and financial literacy resources.
+*   **Reserve Bank of India (RBI)**: For guidelines on credit scores and banking norms.
 
 ---
 
