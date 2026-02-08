@@ -21,4 +21,4 @@ RUN python manage.py collectstatic --noinput
 EXPOSE 8000
 
 # Run the server
-CMD sh -c "python manage.py migrate && python manage.py seed_scenarios && gunicorn core.wsgi:application --bind 0.0.0.0:${PORT:-8000}"
+CMD sh -c "python manage.py migrate && python manage.py seed_scenarios && python manage.py auto_translate && gunicorn core.wsgi:application --bind 0.0.0.0:${PORT:-8000}"
