@@ -34,11 +34,8 @@ class ChoiceSerializer(serializers.ModelSerializer):
             data['text'] = data.get('text_mr') or data['text']
             data['feedback'] = data.get('feedback_mr') or data['feedback']
         
-        # Remove translation fields from response (cleaner API)
-        data.pop('text_hi', None)
-        data.pop('text_mr', None)
-        data.pop('feedback_hi', None)
-        data.pop('feedback_mr', None)
+        # Keep translation fields in response for client-side switching
+        # The frontend needs these to switch languages without re-fetching
         
         return data
 
@@ -80,11 +77,8 @@ class ScenarioCardSerializer(serializers.ModelSerializer):
             data['title'] = data.get('title_mr') or data['title']
             data['description'] = data.get('description_mr') or data['description']
         
-        # Remove translation fields from response (cleaner API)
-        data.pop('title_hi', None)
-        data.pop('title_mr', None)
-        data.pop('description_hi', None)
-        data.pop('description_mr', None)
+        # Keep translation fields in response for client-side switching
+        # The frontend needs these to switch languages without re-fetching
         
         return data
 
