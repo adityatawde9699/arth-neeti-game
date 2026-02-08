@@ -9,32 +9,27 @@ const HomePage = ({ onStartGame, isLoading, username }) => {
     const navigate = useNavigate();
     const { t } = useTranslation();
 
+    // Data moved inside component to allow dynamic translation
+    const expenses = [
+        { id: 1, name: t('home.budget.rent'), amount: 10000, category: 'HOUSING', is_essential: true },
+        { id: 2, name: t('home.budget.groceries'), amount: 2500, category: 'FOOD', is_essential: true },
+        { id: 3, name: t('home.budget.utilities'), amount: 1000, category: 'UTILITIES', is_essential: true },
+        { id: 4, name: t('home.budget.transport'), amount: 1000, category: 'TRANSPORT', is_essential: true },
+    ];
+
     return (
         <div className="home-page">
-            {/* Profile Icon - Top Left */}
+            {/* Profile Icon */}
             <div className="profile-icon-container">
-                <button
-                    onClick={() => navigate('/profile')}
-                    className="profile-icon-btn"
-                    aria-label="Profile"
-                >
-                    <svg
-                        width="24"
-                        height="24"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                    >
+                <button onClick={() => navigate('/profile')} className="profile-icon-btn" aria-label="Profile">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                         <circle cx="12" cy="7" r="4"></circle>
                     </svg>
                 </button>
             </div>
 
-            {/* Language Switcher - Top Right */}
+            {/* Language Switcher */}
             <div className="home-lang-switcher" style={{ position: 'absolute', top: '1rem', right: '1rem', zIndex: 10 }}>
                 <LanguageSwitcher />
             </div>
@@ -43,16 +38,9 @@ const HomePage = ({ onStartGame, isLoading, username }) => {
             <div className="hero-section">
                 <div className="hero-icon">💼💰</div>
                 <h1 className="hero-title">Arth-Neeti</h1>
-                <p className="hero-subtitle">Your First Year as a Working Professional</p>
-                <p className="hero-description">
-                    Navigate 12 months of real-life financial decisions. Balance your salary,
-                    manage expenses, and survive without going bankrupt or burning out!
-                </p>
-                <button
-                    className="cta-button"
-                    onClick={onStartGame}
-                    disabled={isLoading}
-                >
+                <p className="hero-subtitle">{t('home.hero.subtitle')}</p>
+                <p className="hero-description">{t('home.hero.description')}</p>
+                <button className="cta-button" onClick={onStartGame} disabled={isLoading}>
                     {isLoading ? (
                         <>
                             <span className="loading-spinner-small"></span>
@@ -67,141 +55,133 @@ const HomePage = ({ onStartGame, isLoading, username }) => {
                 </button>
             </div>
 
-            {/* Game Objective Section */}
+            {/* Info Cards */}
             <div className="info-cards-section">
                 <div className="info-cards-row">
                     {/* Objective Card */}
                     <div className="info-card">
                         <div className="card-icon red">🎯</div>
-                        <h3 className="card-title">Your Mission</h3>
+                        <h3 className="card-title">{t('home.mission.title')}</h3>
                         <div className="card-content">
-                            <p className="mission-text">Survive 12 months without:</p>
+                            <p className="mission-text">{t('home.mission.text')}</p>
                             <div className="danger-badges">
-                                <span className="badge danger-badge">💸 Bankruptcy (₹0)</span>
-                                <span className="badge warning-badge">😰 Burnout (0% Happiness)</span>
+                                <span className="badge danger-badge">{t('home.mission.bankruptcy')}</span>
+                                <span className="badge warning-badge">{t('home.mission.burnout')}</span>
                             </div>
-                            <p className="reward-text">Complete all 12 months to unlock your Financial Persona!</p>
+                            <p className="reward-text">{t('home.mission.reward')}</p>
                         </div>
                     </div>
 
-                    {/* Stats Explained Card */}
+                    {/* Stats Card */}
                     <div className="info-card">
                         <div className="card-icon blue">📊</div>
-                        <h3 className="card-title">Your Stats</h3>
+                        <h3 className="card-title">{t('home.stats.title')}</h3>
                         <div className="card-content">
                             <ul className="stats-list">
-                                <li><span className="stat-emoji">💰</span> <strong>{t('common.wealth')}</strong> - Your bank balance (Starting: ₹25,000)</li>
-                                <li><span className="stat-emoji">😊</span> <strong>{t('common.happiness')}</strong> - Your happiness & mental health</li>
-                                <li><span className="stat-emoji">📊</span> <strong>{t('common.credit_score')}</strong> - CIBIL score (300-900)</li>
-                                <li><span className="stat-emoji">🧾</span> <strong>Monthly Bills</strong> - Living costs + subscriptions</li>
+                                <li><span className="stat-emoji">💰</span> <strong>{t('common.wealth')}</strong> - {t('home.stats.wealth_desc')}</li>
+                                <li><span className="stat-emoji">😊</span> <strong>{t('common.happiness')}</strong> - {t('home.stats.happiness_desc')}</li>
+                                <li><span className="stat-emoji">📊</span> <strong>{t('common.credit_score')}</strong> - {t('home.stats.credit_desc')}</li>
+                                <li><span className="stat-emoji">🧾</span> <strong>{t('home.stats.bills')}</strong> - {t('home.stats.bills_desc')}</li>
                             </ul>
                         </div>
                     </div>
                 </div>
 
-                {/* How to Play Card - Full Width */}
+                {/* How to Play Card */}
                 <div className="info-card full-width">
                     <div className="card-icon green">🎮</div>
-                    <h3 className="card-title">How to Play</h3>
+                    <h3 className="card-title">{t('home.how_to.title')}</h3>
                     <div className="card-content game-loop">
                         <div className="loop-step">
                             <div className="step-number">1</div>
                             <div className="step-content">
-                                <h4>📋 Read the Scenario</h4>
-                                <p>Each month you'll face 3 real-life situations - from office parties to medical emergencies</p>
+                                <h4>📋 {t('home.how_to.step1_title')}</h4>
+                                <p>{t('home.how_to.step1_desc')}</p>
                             </div>
                         </div>
                         <div className="loop-arrow">→</div>
                         <div className="loop-step">
                             <div className="step-number">2</div>
                             <div className="step-content">
-                                <h4>🤔 Make Your Choice</h4>
-                                <p>Every choice affects your Wealth, Happiness, and Credit Score. Choose wisely!</p>
+                                <h4>🤔 {t('home.how_to.step2_title')}</h4>
+                                <p>{t('home.how_to.step2_desc')}</p>
                             </div>
                         </div>
                         <div className="loop-arrow">→</div>
                         <div className="loop-step">
                             <div className="step-number">3</div>
                             <div className="step-content">
-                                <h4>💵 Monthly Salary</h4>
-                                <p>Receive ₹25,000 salary, but bills are deducted automatically each month</p>
+                                <h4>💵 {t('home.how_to.step3_title')}</h4>
+                                <p>{t('home.how_to.step3_desc')}</p>
                             </div>
                         </div>
                         <div className="loop-arrow">→</div>
                         <div className="loop-step">
                             <div className="step-number">4</div>
                             <div className="step-content">
-                                <h4>🔄 Repeat</h4>
-                                <p>Survive all 12 months to win and see your final Financial Persona!</p>
+                                <h4>🔄 {t('home.how_to.step4_title')}</h4>
+                                <p>{t('home.how_to.step4_desc')}</p>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Budget Preview Section */}
+            {/* Budget Preview */}
             <div className="budget-preview-section" style={{ maxWidth: '800px', margin: '0 auto 2rem auto', padding: '0 1rem' }}>
-                <BudgetDisplay
-                    expenses={[
-                        { id: 1, name: 'Rent (2BHK)', amount: 10000, category: 'HOUSING', is_essential: true },
-                        { id: 2, name: 'Groceries', amount: 2500, category: 'FOOD', is_essential: true },
-                        { id: 3, name: 'Utilities', amount: 1000, category: 'UTILITIES', is_essential: true },
-                        { id: 4, name: 'Transport', amount: 1000, category: 'TRANSPORT', is_essential: true },
-                    ]}
-                    totalMonthlyDrain={14500}
-                />
+                <BudgetDisplay expenses={expenses} totalMonthlyDrain={14500} />
             </div>
 
-            {/* Features Section */}
+            {/* Features (Goals) Section */}
             <div className="goals-section">
                 <div className="goal-card">
                     <div className="goal-icon blue">📈</div>
-                    <h3 className="goal-title">Stock Market</h3>
+                    <h3 className="goal-title">{t('home.features.stock.title')}</h3>
                     <div className="goal-info">
-                        <span className="goal-label">Sectors</span>
-                        <span className="goal-amount blue">Gold, Tech, Real Estate</span>
+                        <span className="goal-label">{t('home.features.stock.label')}</span>
+                        <span className="goal-amount blue">{t('home.features.stock.value')}</span>
                     </div>
-                    <p className="goal-description">Invest in Dalal Street - buy low, sell high!</p>
+                    <p className="goal-description">{t('home.features.stock.desc')}</p>
                 </div>
                 <div className="goal-card">
                     <div className="goal-icon green">🏦</div>
-                    <h3 className="goal-title">Loans</h3>
+                    <h3 className="goal-title">{t('home.features.loans.title')}</h3>
                     <div className="goal-info">
-                        <span className="goal-label">Options</span>
-                        <span className="goal-amount green">Family / Instant App</span>
+                        <span className="goal-label">{t('home.features.loans.label')}</span>
+                        <span className="goal-amount green">{t('home.features.loans.value')}</span>
                     </div>
-                    <p className="goal-description">Borrow when broke, but beware of interest!</p>
+                    <p className="goal-description">{t('home.features.loans.desc')}</p>
                 </div>
                 <div className="goal-card">
                     <div className="goal-icon purple">💡</div>
-                    <h3 className="goal-title">Lifelines</h3>
+                    <h3 className="goal-title">{t('home.features.lifelines.title')}</h3>
                     <div className="goal-info">
-                        <span className="goal-label">Help</span>
-                        <span className="goal-amount purple">Ask NCFE / AI Advisor</span>
+                        <span className="goal-label">{t('home.features.lifelines.label')}</span>
+                        <span className="goal-amount purple">{t('home.features.lifelines.value')}</span>
                     </div>
-                    <p className="goal-description">Stuck? Get expert financial advice!</p>
+                    <p className="goal-description">{t('home.features.lifelines.desc')}</p>
                 </div>
             </div>
 
             {/* Pro Tips */}
             <div className="tips-section">
-                <h3 className="tips-title">💡 Pro Tips</h3>
+                <h3 className="tips-title">💡 {t('home.tips.title')}</h3>
                 <div className="tips-grid">
                     <div className="tip-item">
                         <span className="tip-icon">🚫</span>
-                        <span>Avoid expensive subscriptions that drain your wallet monthly</span>
+                        <span>{t('home.tips.tip1')}</span>
                     </div>
                     <div className="tip-item">
                         <span className="tip-icon">🛡️</span>
-                        <span>Build an emergency fund for unexpected medical expenses</span>
+                        <span>{t('home.tips.tip2')}</span>
                     </div>
                     <div className="tip-item">
                         <span className="tip-icon">⚠️</span>
-                        <span>High-interest loans can trap you in a debt spiral</span>
+                        <span>{t('home.tips.tip3')}</span>
                     </div>
                     <div className="tip-item">
                         <span className="tip-icon">📊</span>
-                        <span>A good credit score (750+) unlocks better loan options</span>
+                        <span>{t('home.tips.tip4')}</span>
                     </div>
                 </div>
             </div>

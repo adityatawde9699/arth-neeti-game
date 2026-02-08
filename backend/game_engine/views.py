@@ -343,8 +343,8 @@ def get_ai_advice(request):
     )
 
     return Response({
-        'advice': result['advice'],
-        'source': result['source'],
+        'advice': result.advice,
+        'source': result.source,
     })
 
 

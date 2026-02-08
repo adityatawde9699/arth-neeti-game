@@ -1,0 +1,58 @@
+/* Language Switcher Container */
+.language-switcher {
+  display: flex;
+  gap: 0.5rem;
+  background: rgba(30, 41, 59, 0.6);
+  backdrop-filter: blur(12px);
+  padding: 0.5rem;
+  border-radius: 9999px; /* Pill shape */
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
+}
+
+.language-switcher:hover {
+  background: rgba(30, 41, 59, 0.8);
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* Language Buttons */
+.lang-btn {
+  padding: 0.5rem 1rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #cbd5e1;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Hover State */
+.lang-btn:hover:not(.active) {
+  color: white;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Active State */
+.lang-btn.active {
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+  transform: translateY(-1px);
+}
+
+/* Active State Hover */
+.lang-btn.active:hover {
+  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.5);
+}
+
+/* Base focus styles for accessibility */
+.lang-btn:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}

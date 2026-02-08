@@ -1144,19 +1144,29 @@ class Command(BaseCommand):
         ]
 
         created_count = 0
+        updated_count = 0
+
         for scenario_data in scenarios:
             choices_data = scenario_data.pop('choices')
-            scenario, created = ScenarioCard.objects.get_or_create(
+            
+            # CHANGED: Use update_or_create instead of get_or_create
+            scenario, created = ScenarioCard.objects.update_or_create(
                 title=scenario_data['title'],
                 defaults=scenario_data
             )
             
+            # Clear existing choices to ensure idempotency (re-create them)
+            # This prevents duplicate choices if we run the seed script twice
+            scenario.choices.all().delete()
+            
+            for choice_data in choices_data:
+                Choice.objects.create(card=scenario, **choice_data)
+
             if created:
                 created_count += 1
-                for choice_data in choices_data:
-                    Choice.objects.create(card=scenario, **choice_data)
                 self.stdout.write(f"Created: {scenario.title}")
             else:
-                self.stdout.write(f"Skipped (exists): {scenario.title}")
+                updated_count += 1
+                self.stdout.write(f"Updated: {scenario.title}")
 
-        self.stdout.write(self.style.SUCCESS(f'\nSeeded {created_count} new scenarios!'))
+        self.stdout.write(self.style.SUCCESS(f'\nSeeded: {created_count} new, {updated_count} updated.'))

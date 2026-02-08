@@ -42,5 +42,70 @@
         "news": "News",
         "quiz": "Quiz",
         "career": "Career"
+    },
+    "home": {
+        "hero": {
+            "subtitle": "Your First Year as a Working Professional",
+            "description": "Navigate 12 months of real-life financial decisions. Balance your salary, manage expenses, and survive without going bankrupt or burning out!"
+        },
+        "mission": {
+            "title": "Your Mission",
+            "text": "Survive 12 months without:",
+            "bankruptcy": "💸 Bankruptcy (₹0)",
+            "burnout": "😰 Burnout (0% Happiness)",
+            "reward": "Complete all 12 months to unlock your Financial Persona!"
+        },
+        "stats": {
+            "title": "Your Stats",
+            "wealth_desc": "Your bank balance (Starting: ₹25,000)",
+            "happiness_desc": "Your happiness & mental health",
+            "credit_desc": "CIBIL score (300-900)",
+            "bills": "Monthly Bills",
+            "bills_desc": "Living costs + subscriptions"
+        },
+        "how_to": {
+            "title": "How to Play",
+            "step1_title": "Read the Scenario",
+            "step1_desc": "Each month you'll face 3 real-life situations - from office parties to medical emergencies",
+            "step2_title": "Make Your Choice",
+            "step2_desc": "Every choice affects your Wealth, Happiness, and Credit Score. Choose wisely!",
+            "step3_title": "Monthly Salary",
+            "step3_desc": "Receive ₹25,000 salary, but bills are deducted automatically each month",
+            "step4_title": "Repeat",
+            "step4_desc": "Survive all 12 months to win and see your final Financial Persona!"
+        },
+        "budget": {
+            "rent": "Rent (2BHK)",
+            "groceries": "Groceries",
+            "utilities": "Utilities",
+            "transport": "Transport"
+        },
+        "features": {
+            "stock": {
+                "title": "Stock Market",
+                "label": "Sectors",
+                "value": "Gold, Tech, Real Estate",
+                "desc": "Invest in Dalal Street - buy low, sell high!"
+            },
+            "loans": {
+                "title": "Loans",
+                "label": "Options",
+                "value": "Family / Instant App",
+                "desc": "Borrow when broke, but beware of interest!"
+            },
+            "lifelines": {
+                "title": "Lifelines",
+                "label": "Help",
+                "value": "Ask NCFE / AI Advisor",
+                "desc": "Stuck? Get expert financial advice!"
+            }
+        },
+        "tips": {
+            "title": "Pro Tips",
+            "tip1": "Avoid expensive subscriptions that drain your wallet monthly",
+            "tip2": "Build an emergency fund for unexpected medical expenses",
+            "tip3": "High-interest loans can trap you in a debt spiral",
+            "tip4": "A good credit score (750+) unlocks better loan options"
+        }
     }
 }
