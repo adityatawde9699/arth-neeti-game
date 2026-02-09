@@ -21,7 +21,37 @@ class GameEngine:
         'MIN_CREDIT': 300,
         'MAX_CREDIT': 900,
         'MONTHLY_SALARY': 25000,
-        'STOCK_SECTORS': ['gold', 'tech', 'real_estate']
+        'STOCK_SECTORS': ['gold', 'tech', 'real_estate'],
+        'LEVEL_THRESHOLDS': [
+            {'level': 1, 'min_month': 1, 'min_literacy': 0},
+            {'level': 2, 'min_month': 4, 'min_literacy': 20},
+            {'level': 3, 'min_month': 7, 'min_literacy': 45},
+            {'level': 4, 'min_month': 10, 'min_literacy': 70}
+        ],
+        'LEVEL_CARD_FILTERS': {
+            1: {
+                'max_difficulty': 2,
+                'categories': ['NEEDS', 'WANTS', 'EMERGENCY', 'SOCIAL']
+            },
+            2: {
+                'max_difficulty': 3,
+                'categories': ['NEEDS', 'WANTS', 'EMERGENCY', 'SOCIAL', 'INVESTMENT', 'NEWS']
+            },
+            3: {
+                'max_difficulty': 4,
+                'categories': ['NEEDS', 'WANTS', 'EMERGENCY', 'SOCIAL', 'INVESTMENT', 'NEWS', 'QUIZ', 'TRAP']
+            },
+            4: {
+                'max_difficulty': 5,
+                'categories': None
+            }
+        },
+        'LEVEL_UNLOCKS': {
+            'loans': 2,
+            'investing': 2,
+            'diversification': 3,
+            'mastery': 4
+        }
     }
     REPORT_PROMPT_TEMPLATE = (
         "You are an expert financial coach. Generate a concise Markdown report for the player. "
@@ -62,6 +92,7 @@ class GameEngine:
             credit_score=GameEngine.CONFIG['CREDIT_SCORE_START'],
             current_month=GameEngine.CONFIG['START_MONTH']
         )
+        session.current_level = GameEngine._calculate_level(session)
         # Init market trends
         session.market_trends = {s: 0 for s in GameEngine.CONFIG['STOCK_SECTORS']}
         session.save()
@@ -117,20 +148,35 @@ class GameEngine:
         - Weights by difficulty vs literacy.
         - Ensures variety.
         """
+        GameEngine._refresh_level(session)
+        level_filters = GameEngine.CONFIG['LEVEL_CARD_FILTERS'].get(
+            session.current_level,
+            GameEngine.CONFIG['LEVEL_CARD_FILTERS'][1]
+        )
         # 1. Filter valid cards
         shown_ids = PlayerChoice.objects.filter(session=session).values_list('card_id', flat=True)
         
         available = ScenarioCard.objects.filter(
              is_active=True,
-             min_month__lte=session.current_month
+             min_month__lte=session.current_month,
+             difficulty__lte=level_filters['max_difficulty']
         ).exclude(id__in=shown_ids)
+
+        if level_filters['categories']:
+            available = available.filter(category__in=level_filters['categories'])
+
+        if not available.exists():
+            available = ScenarioCard.objects.filter(
+                is_active=True,
+                min_month__lte=session.current_month
+            ).exclude(id__in=shown_ids)
         
         if not available.exists():
-             # Fallback: Allow repeats if deck exhausted
-             available = ScenarioCard.objects.filter(
-                 is_active=True,
-                 min_month__lte=session.current_month
-             )
+            # Fallback: Allow repeats if deck exhausted
+            available = ScenarioCard.objects.filter(
+                is_active=True,
+                min_month__lte=session.current_month
+            )
              
         if not available.exists():
             return None # Should handle "End Game" or "No Cards" upstream
@@ -272,8 +318,6 @@ class GameEngine:
         game_over, reason = GameEngine._check_game_over(session)
         if game_over:
             GameEngine._finalize_game(session, reason)
-        else:
-            session.save()
 
         return {
             'session': session,
@@ -342,6 +386,7 @@ class GameEngine:
         months_passed = 1 # Simple 1 month step
         
         report_lines = [f"📅 Month {session.current_month} Started!"]
+        GameEngine._refresh_level(session)
 
         # 2. Income (Salary)
         salary_credit = GameEngine.CONFIG['MONTHLY_SALARY']
@@ -442,6 +487,9 @@ class GameEngine:
         Smart Loan System.
         Limit based on credit score.
         """
+        GameEngine._refresh_level(session)
+        if session.current_level < GameEngine.CONFIG['LEVEL_UNLOCKS']['loans']:
+            return {'error': "Loans unlock at Level 2."}
         # Calculate Credit Limit
         # Score 700 -> ₹14,000 limit
         credit_limit = session.credit_score * 30
@@ -607,6 +655,15 @@ class GameEngine:
         """
         Buy stocks in a specific sector.
         """
+        GameEngine._refresh_level(session)
+        if session.current_level < GameEngine.CONFIG['LEVEL_UNLOCKS']['investing']:
+            return {'error': "Investing unlocks at Level 2."}
+        if (
+            session.current_level < GameEngine.CONFIG['LEVEL_UNLOCKS']['diversification']
+            and session.portfolio
+            and any(units > 0 for s, units in session.portfolio.items() if s != sector)
+        ):
+            return {'error': "Diversification unlocks at Level 3. Stick to one sector for now."}
         if sector not in GameEngine.CONFIG['STOCK_SECTORS']:
             return {'error': "Invalid sector."}
             
@@ -683,6 +740,9 @@ class GameEngine:
         """
         Executes a Futures Contract sale.
         """
+        GameEngine._refresh_level(session)
+        if session.current_level < GameEngine.CONFIG['LEVEL_UNLOCKS']['mastery']:
+            return {'error': "Mastery futures unlock at Level 4."}
         if sector not in session.market_prices:
             return {'error': "Invalid sector"}
             
@@ -746,3 +806,20 @@ class GameEngine:
             'final_score': s,
             'net_worth': w
         }
+
+    @staticmethod
+    def _calculate_level(session):
+        level = 1
+        for threshold in GameEngine.CONFIG['LEVEL_THRESHOLDS']:
+            if (
+                session.current_month >= threshold['min_month']
+                or session.financial_literacy >= threshold['min_literacy']
+            ):
+                level = threshold['level']
+        return level
+
+    @staticmethod
+    def _refresh_level(session):
+        next_level = GameEngine._calculate_level(session)
+        if session.current_level != next_level:
+            session.current_level = next_level

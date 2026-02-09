@@ -497,7 +497,8 @@ def market_status(request, session_id):
         'market_prices': session.market_prices,
         'portfolio': holdings,
         'total_portfolio_value': portfolio_value,
-        'net_worth': session.wealth + portfolio_value
+        'net_worth': session.wealth + portfolio_value,
+        'current_level': session.current_level
     })
 
 

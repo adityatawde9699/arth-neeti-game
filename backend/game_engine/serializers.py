@@ -99,7 +99,7 @@ class GameSessionSerializer(serializers.ModelSerializer):
     class Meta:
         model = GameSession
         fields = [
-            'id', 'username', 'current_month', 'wealth',
+            'id', 'username', 'current_month', 'current_level', 'wealth',
             'happiness', 'credit_score', 'financial_literacy', 
             'lifelines', 'is_active',
             'market_prices', 'portfolio', 'recurring_expenses',

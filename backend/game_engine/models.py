@@ -40,6 +40,7 @@ class GameSession(models.Model):
     financial_literacy = models.IntegerField(default=0)  # Hidden Score for persona
     lifelines = models.IntegerField(default=3)      # "Ask NCFE" hints available
     is_active = models.BooleanField(default=True)
+    current_level = models.IntegerField(default=1)
     
     # --- NEW: Stock Market 2.0 ---
     # Market prices for each sector (starts at 100)
