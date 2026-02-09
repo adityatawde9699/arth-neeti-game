@@ -122,7 +122,8 @@ class GameSessionSerializer(serializers.ModelSerializer):
             'lifelines', 'is_active',
             'real_estate_holdings', 'gold_holdings', 'current_level',
             'market_prices', 'portfolio', 'recurring_expenses',
-
+            'persona_profile', 'income_sources', 'active_expenses',
+            'mutual_funds', 'active_ipos',
         ]
         read_only_fields = ['id', 'username', 'financial_literacy', 'lifelines']
 

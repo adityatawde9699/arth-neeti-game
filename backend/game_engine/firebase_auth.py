@@ -5,6 +5,7 @@ Provides middleware and DRF authentication class for Firebase ID token verificat
 import os
 import json
 import firebase_admin
+from pathlib import Path
 from firebase_admin import auth, credentials
 from django.contrib.auth import get_user_model
 from django.utils.functional import SimpleLazyObject
@@ -37,13 +38,25 @@ def initialize_firebase():
     # Try loading from file path (for local development)
     service_account_path = os.environ.get('FIREBASE_SERVICE_ACCOUNT_PATH', '')
     print(f"DEBUG: Checking FIREBASE_SERVICE_ACCOUNT_PATH: '{service_account_path}'")
+    
     if service_account_path:
-        print(f"DEBUG: File exists? {os.path.exists(service_account_path)}")
-    if service_account_path and os.path.exists(service_account_path):
-        cred = credentials.Certificate(service_account_path)
-        firebase_admin.initialize_app(cred)
-        print(f"[SUCCESS] Firebase initialized successfully from file: {service_account_path}")
-        return
+        # Resolve path relative to BASE_DIR if it's not absolute
+        from django.conf import settings
+        path_obj = Path(service_account_path)
+        if not path_obj.is_absolute():
+            resolved_path = (settings.BASE_DIR / service_account_path).resolve()
+            print(f"DEBUG: Resolved relative path to: '{resolved_path}'")
+        else:
+            resolved_path = path_obj
+            print(f"DEBUG: Using absolute path: '{resolved_path}'")
+
+        if resolved_path.exists():
+            cred = credentials.Certificate(str(resolved_path))
+            firebase_admin.initialize_app(cred)
+            print(f"[SUCCESS] Firebase initialized successfully from file: {resolved_path}")
+            return
+        else:
+            print(f"[ERROR] Service account file not found at: {resolved_path}")
     
     print("[WARNING] Firebase not initialized. Set FIREBASE_SERVICE_ACCOUNT_PATH or FIREBASE_SERVICE_ACCOUNT_JSON")
 

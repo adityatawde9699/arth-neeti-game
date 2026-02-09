@@ -3,9 +3,10 @@ import random
 import uuid
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
-from .models import GameSession, PlayerChoice, RecurringExpense, GameHistory, PlayerProfile, ScenarioCard, StockHistory, FuturesContract
+from .models import GameSession, PlayerChoice, RecurringExpense, GameHistory, PlayerProfile, ScenarioCard, StockHistory, FuturesContract, IncomeSource
 from .ml.predictor import MarketPredictor
-from .advisor import GENAI_AVAILABLE, genai
+from .advisor import GENAI_AVAILABLE, genai, get_advisor, AdvisorPersona
+from .ai_engine import get_ai_master
 
 class GameEngine:
     # Game Configuration Constants
@@ -15,7 +16,7 @@ class GameEngine:
         'CREDIT_SCORE_START': 700,
         'START_MONTH': 1,
         'CARDS_PER_MONTH': 3,
-        'GAME_DURATION_MONTHS': 12,
+        'GAME_DURATION_MONTHS': 60, # Extended for 5 years as per comments (was 12 in code)
         'MIN_HAPPINESS': 0,
         'MAX_HAPPINESS': 100,
         'MIN_CREDIT': 300,
@@ -23,10 +24,11 @@ class GameEngine:
         'MONTHLY_SALARY': 25000,
         'STOCK_SECTORS': ['gold', 'tech', 'real_estate'],
         'LEVEL_THRESHOLDS': [
-            {'level': 1, 'min_month': 1, 'min_literacy': 0},
-            {'level': 2, 'min_month': 4, 'min_literacy': 20},
-            {'level': 3, 'min_month': 7, 'min_literacy': 45},
-            {'level': 4, 'min_month': 10, 'min_literacy': 70}
+            {'level': 1, 'min_month': 1, 'min_literacy': 0, 'desc': 'The Basics'},
+            {'level': 2, 'min_month': 6, 'min_literacy': 20, 'desc': 'Credit & Debt'},
+            {'level': 3, 'min_month': 12, 'min_literacy': 45, 'desc': 'Investing'},
+            {'level': 4, 'min_month': 24, 'min_literacy': 70, 'desc': 'Diversification'},
+            {'level': 5, 'min_month': 36, 'min_literacy': 90, 'desc': 'Mastery'}
         ],
         'LEVEL_CARD_FILTERS': {
             1: {
@@ -35,22 +37,39 @@ class GameEngine:
             },
             2: {
                 'max_difficulty': 3,
-                'categories': ['NEEDS', 'WANTS', 'EMERGENCY', 'SOCIAL', 'INVESTMENT', 'NEWS']
+                'categories': ['NEEDS', 'WANTS', 'EMERGENCY', 'SOCIAL', 'DEBT', 'SHOPPING']
             },
             3: {
                 'max_difficulty': 4,
-                'categories': ['NEEDS', 'WANTS', 'EMERGENCY', 'SOCIAL', 'INVESTMENT', 'NEWS', 'QUIZ', 'TRAP']
+                'categories': ['NEEDS', 'WANTS', 'EMERGENCY', 'SOCIAL', 'INVESTMENT', 'NEWS']
             },
             4: {
                 'max_difficulty': 5,
-                'categories': None
+                'categories': ['NEEDS', 'WANTS', 'EMERGENCY', 'SOCIAL', 'INVESTMENT', 'NEWS', 'QUIZ', 'TRAP']
+            },
+            5: {
+                'max_difficulty': 5,
+                'categories': None # All
             }
         },
         'LEVEL_UNLOCKS': {
             'loans': 2,
-            'investing': 2,
-            'diversification': 3,
-            'mastery': 4
+            'investing': 3,
+            'diversification': 4,
+            'diversification': 4,
+            'mastery': 5
+        },
+        'MUTUAL_FUNDS': {
+            'NIFTY50': {'name': 'Nifty 50 Index Fund', 'risk': 'LOW', 'volatility': 0.03},
+            'MIDCAP': {'name': 'MidCap Opportunities', 'risk': 'MEDIUM', 'volatility': 0.06},
+            'SMALLCAP': {'name': 'SmallCap Discovery', 'risk': 'HIGH', 'volatility': 0.10}
+        },
+        'IPO_SCHEDULE': {
+            # Month: {Details}
+            6: {'name': 'Zomato', 'price_band': 76, 'listing_gain_prob': 0.7},
+            12: {'name': 'LIC', 'price_band': 900, 'listing_gain_prob': 0.4},
+            18: {'name': 'Paytm', 'price_band': 2150, 'listing_gain_prob': 0.1}, # The trap!
+            24: {'name': 'Tata Tech', 'price_band': 500, 'listing_gain_prob': 0.9}
         }
     }
     REPORT_PROMPT_TEMPLATE = (
@@ -113,6 +132,10 @@ class GameEngine:
             # Set Month 1 Price
             initial_prices[sector] = prices[0]
             
+        # Initialize Mutual Fund NAVs (Start at 100)
+        for mf_key in GameEngine.CONFIG['MUTUAL_FUNDS']:
+            initial_prices[f"MF_{mf_key}"] = 100
+            
         session.market_prices = initial_prices
         session.portfolio = {s: 0 for s in GameEngine.CONFIG['STOCK_SECTORS']}
         session.save()
@@ -143,12 +166,45 @@ class GameEngine:
     @staticmethod
     def get_next_card(session):
         """
-        Smart Scenario Selection.
+        Smart Scenario Selection with AI Integration.
+        - 30% chance to generate a fresh AI scenario tailored to the user.
+        - Fallback to DB deck if AI fails or skipped.
         - Avoids repeats.
-        - Weights by difficulty vs literacy.
-        - Ensures variety.
         """
         GameEngine._refresh_level(session)
+        
+        # --- AI GENERATION ATTEMPT ---
+        # Try AI 30% of the time, or if we are running low on cards?
+        # Let's try 30% for now to mix handling latency.
+        if random.random() < 0.3:
+            try:
+                profile = session.persona_profile
+                if profile:
+                    ai_master = get_ai_master()
+                    # Pick a random category suitable for the level
+                    level_categories = GameEngine.CONFIG['LEVEL_CARD_FILTERS'].get(
+                        session.current_level, 
+                        GameEngine.CONFIG['LEVEL_CARD_FILTERS'][1]
+                    )['categories']
+                    
+                    category = random.choice(level_categories) if level_categories else "WANTS"
+                    
+                    # Generate
+                    ai_card = ai_master.generate_scenario(
+                        profile=profile,
+                        wealth=session.wealth,
+                        month=session.current_month,
+                        category=category
+                    )
+                    
+                    if ai_card:
+                        return ai_card
+            except Exception as e:
+                # Log and fall back
+                print(f"AI Generation failed: {e}")
+                pass
+
+        # --- STANDARD DECK FALLBACK ---
         level_filters = GameEngine.CONFIG['LEVEL_CARD_FILTERS'].get(
             session.current_level,
             GameEngine.CONFIG['LEVEL_CARD_FILTERS'][1]
@@ -158,6 +214,7 @@ class GameEngine:
         
         available = ScenarioCard.objects.filter(
              is_active=True,
+             is_generated=False, # Prefer handcrafted cards for the base deck
              min_month__lte=session.current_month,
              difficulty__lte=level_filters['max_difficulty']
         ).exclude(id__in=shown_ids)
@@ -168,6 +225,7 @@ class GameEngine:
         if not available.exists():
             available = ScenarioCard.objects.filter(
                 is_active=True,
+                is_generated=False,
                 min_month__lte=session.current_month
             ).exclude(id__in=shown_ids)
         
@@ -175,6 +233,7 @@ class GameEngine:
             # Fallback: Allow repeats if deck exhausted
             available = ScenarioCard.objects.filter(
                 is_active=True,
+                is_generated=False,
                 min_month__lte=session.current_month
             )
              
@@ -186,7 +245,6 @@ class GameEngine:
         # If Literacy is high (>70), allow harder cards (Difficulty 4-5)
         
         # Simple weighted random choice from available
-        # Ideally we'd use random.choices with weights, but for now simple random is better than fixed
         return random.choice(list(available))
 
     @staticmethod
@@ -388,10 +446,38 @@ class GameEngine:
         report_lines = [f"📅 Month {session.current_month} Started!"]
         GameEngine._refresh_level(session)
 
-        # 2. Income (Salary)
-        salary_credit = GameEngine.CONFIG['MONTHLY_SALARY']
-        session.wealth += salary_credit
-        report_lines.append(f"+₹{salary_credit} Salary credited.")
+        # 2. Income Processing
+        # Calculate Total Income from all sources
+        total_income = 0
+        income_report_lines = []
+        
+        income_sources = IncomeSource.objects.filter(session=session)
+        # Note: In a real scenario we'd check Frequency (Monthly/Quarterly). Assuming Monthly for MVP or checks.
+        
+        for source in income_sources:
+            amount = source.amount_base
+            
+            # Variability Logic
+            if source.source_type == IncomeSource.SourceType.FREELANCE:
+                chance = random.random()
+                if chance < 0.3: # 30% chance of no gig
+                    amount = 0
+                    income_report_lines.append(f"⚠️ No Freelance gig this month.")
+                else:
+                    # Fluctuate between 80% and 120%
+                    amount = int(source.amount_base * random.uniform(0.8, 1.2))
+                    
+            if amount > 0:
+                total_income += amount
+                income_report_lines.append(f"+₹{amount} from {source.get_source_type_display()}")
+
+        # Fallback if no sources defined (Legacy support)
+        if not income_sources.exists():
+            total_income = GameEngine.CONFIG['MONTHLY_SALARY']
+            income_report_lines.append(f"+₹{total_income} Salary credited.")
+
+        session.wealth += total_income
+        report_lines.extend(income_report_lines)
 
         # 3. Recurring Expenses & Inflation
         # The "Real" Source of Truth is now the RecurringExpense table
@@ -428,6 +514,77 @@ class GameEngine:
         if market_changes:
             report_lines.append(f"Market Update: {', '.join(market_changes)}")
 
+        if market_changes:
+            report_lines.append(f"Market Update: {', '.join(market_changes)}")
+
+        # 4.5. IPO Listings (Check if any active IPO lists today)
+        # Assuming listing happens the month AFTER application
+        # Actually, let's check config. If current_month == listing_month (implied from schedule?)
+        # Let's say IPO is open in Month X, lists in Month X+1.
+        # Check active_ipos for any that are due.
+        
+        # Filter active IPOs
+        # active_ipos structure: [{"name": "Zomato", "amount": 15000, "status": "APPLIED", "month": 5}]
+        updated_ipos = []
+        for ipo in session.active_ipos:
+            # If applied month < current month -> LIST IT!
+            if ipo['status'] == 'APPLIED' and ipo['month'] < session.current_month:
+                # Find IPO details (reverse lookup or just store in ipo object? Store in object for safety)
+                # But we defined schedule in CONFIG. Let's look up by name.
+                ipo_details = next((v for k,v in GameEngine.CONFIG['IPO_SCHEDULE'].items() if v['name'] == ipo['name']), None)
+                
+                listing_gain_pct = 0
+                if ipo_details:
+                    # Determine Listing Gain
+                    # Probabilistic
+                    if random.random() < ipo_details['listing_gain_prob']:
+                        # Gain: +10% to +80%
+                        listing_gain_pct = random.uniform(0.1, 0.8)
+                    else:
+                        # Loss: -5% to -30%
+                        listing_gain_pct = random.uniform(-0.3, -0.05)
+                else:
+                    # Fallback
+                    listing_gain_pct = 0.1
+                
+                # Allotment Logic (Random 0 to 100%)
+                # High demand IPOs might give 0 allotment.
+                allotment_ratio = random.choice([0.0, 0.5, 1.0]) # Simplified
+                
+                invested = ipo['amount']
+                allotted_value = invested * allotment_ratio
+                refund = invested - allotted_value
+                
+                # Listing Value
+                final_value = allotted_value * (1 + listing_gain_pct)
+                
+                total_credit = refund + final_value
+                profit = total_credit - invested
+                
+                session.wealth += int(total_credit)
+                
+                # Log it
+                status_msg = ""
+                if allotment_ratio == 0:
+                     status_msg = "No allotment (Refunded)."
+                elif profit > 0:
+                     status_msg = f"LISTED WITH GAINS! Profit: ₹{int(profit)}"
+                else:
+                     status_msg = f"DISCOUNT LISTING. Loss: ₹{int(abs(profit))}"
+                     
+                report_lines.append(f"🔔 IPO {ipo['name']}: {status_msg}")
+                
+                # Mark as processed
+                ipo['status'] = 'PROCESSED'
+                # Don't keep processed IPOs in active list? Keeping them for history might be good.
+                # But active_ipos implies active. Let's move to a history log or just remove.
+                # Let's remove for now to keep JSON clean, or mark PROCESSED.
+                # GameSessionSerializer expects list.
+            else:
+                updated_ipos.append(ipo)
+                
+        session.active_ipos = updated_ipos
+
         # 5. Natural Stat Decay & Soft Failures
         # Stress from low wealth
         if session.wealth < 10000:
@@ -444,11 +601,51 @@ class GameEngine:
         
         session.save()
 
+        if game_over:
+            report_lines.append(f"GAME OVER: {reason}")
+            
+        # 7. Advisor Trigger (Proactive Commentary)
+        # Only if game not over
+        if not game_over and GENAI_AVAILABLE:
+            advisor_msg = GameEngine._check_advisor_triggers(session)
+            if advisor_msg:
+                 report_lines.append(f"💬 Advisor: {advisor_msg}")
+
         return {
             'report': " ".join(report_lines),
             'game_over': game_over,
             'game_over_reason': reason
         }
+
+    @staticmethod
+    def _check_advisor_triggers(session):
+        """Check for events that warrant proactive advice."""
+        advisor = get_advisor()
+        msg = None
+        
+        # Determine Persona (Could be stored later, random for now or based on playstyle)
+        # Let's say user with high risk appetite gets Sassy, low gets Strict?
+        # For now, default to Friendly or Sassy if something crazy happens.
+        persona = AdvisorPersona.FRIENDLY
+        
+        # 1. Wealth Crisis
+        if session.wealth < 5000:
+             msg = advisor.get_proactive_message("CRISIS", "Wealth dropped below 5k", session.wealth, session.happiness, AdvisorPersona.STRICT)
+             
+        # 2. Wealth Milestone
+        elif session.wealth > 100000 and session.current_month % 6 == 0:
+             msg = advisor.get_proactive_message("MILESTONE", "Wealth over 100k", session.wealth, session.happiness, AdvisorPersona.SASSY)
+
+        # 3. Happiness Low
+        elif session.happiness < 30:
+             msg = advisor.get_proactive_message("WARNING", "Happiness dangerously low", session.wealth, session.happiness, AdvisorPersona.FRIENDLY)
+             
+        # 4. Debt High (Implied by High Expenses)
+        # Estimated Check
+        elif session.recurring_expenses > (25000 * 0.6): # >60% of base salary
+             msg = advisor.get_proactive_message("DANGER", "Expenses > 60% of income", session.wealth, session.happiness, AdvisorPersona.STRICT)
+             
+        return msg
 
     @staticmethod
     def update_market_prices(session):
@@ -478,6 +675,25 @@ class GameEngine:
                     direction = "surged" if pct_change > 0 else "tanked"
                     changes.append(f"{record.sector.title()} {direction} {abs(pct_change):.1f}%")
         
+        # Update Mutual Fund NAVs
+        # Method: Small random walk + bias based on volatility
+        for mf_key, mf_data in GameEngine.CONFIG['MUTUAL_FUNDS'].items():
+            key = f"MF_{mf_key}"
+            old_nav = session.market_prices.get(key, 100)
+            
+            # Volatility
+            vol = mf_data['volatility']
+            # Random move: Normal distribution mean 0.5% growth (0.005), std dev = vol
+            # We want them to generally go up over 5 years.
+            change_pct = random.gauss(0.008, vol) # Mean 0.8% monthly growth (~10% annual)
+            
+            new_nav = old_nav * (1 + change_pct)
+            session.market_prices[key] = max(10, new_nav) # Floor at 10
+            
+            # MFs usually don't make news headlines unless big crash
+            if change_pct < -0.05:
+                 changes.append(f"{mf_data['name']} dropped {abs(change_pct*100):.1f}%")
+
         return changes
 
     # ================= LOAN LOGIC =================
@@ -776,6 +992,139 @@ class GameEngine:
         return {
             'message': f"Contract Sold! {units} {sector} units @ ₹{contract_price}/unit. +₹{int(total_payout)}",
             'session': session
+        }
+
+    # ================= MUTUAL FUNDS & IPOs =================
+    @staticmethod
+    def buy_mutual_fund(session, fund_type, amount):
+        """Invest in a Mutual Fund."""
+        GameEngine._refresh_level(session)
+        if session.current_level < GameEngine.CONFIG['LEVEL_UNLOCKS']['investing']:
+            return {'error': "Investing unlocks at Level 3. (Mutual Funds)"}
+        
+        if fund_type not in GameEngine.CONFIG['MUTUAL_FUNDS']:
+            return {'error': "Invalid Fund Type."}
+            
+        if amount < 500:
+             return {'error': "Minimum investment is ₹500."}
+             
+        if session.wealth < amount:
+             return {'error': "Insufficient funds."}
+             
+        # Execute
+        key = f"MF_{fund_type}"
+        nav = session.market_prices.get(key, 100)
+        units = amount / nav
+        
+        # Update Session
+        # session.mutual_funds structure: {"NIFTY50": {"units": 0, "invested": 0}}
+        current_data = session.mutual_funds.get(fund_type, {'units': 0.0, 'invested': 0.0})
+        
+        current_data['units'] += units
+        current_data['invested'] += amount
+        
+        session.mutual_funds[fund_type] = current_data
+        session.wealth -= amount
+        session.save()
+        
+        return {
+            'session': session,
+            'message': f"Invested ₹{amount} in {GameEngine.CONFIG['MUTUAL_FUNDS'][fund_type]['name']}."
+        }
+        
+    @staticmethod
+    def sell_mutual_fund(session, fund_type, units):
+        """Redeem Mutual Fund units."""
+        if fund_type not in session.mutual_funds:
+             return {'error': "You don't own this fund."}
+             
+        current_data = session.mutual_funds[fund_type]
+        if current_data['units'] < units:
+             return {'error': "Insufficient units."}
+             
+        key = f"MF_{fund_type}"
+        nav = session.market_prices.get(key, 100)
+        
+        redemption_value = units * nav
+        
+        # Update State
+        session.wealth += int(redemption_value)
+        current_data['units'] -= units
+        # Invested amount reduction? Proportional.
+        # If I sell 50% of units, I reduce invested by 50%? Yes, for simple CAGR calc.
+        pct_sold = units / (current_data['units'] + units) # because we already subtracted
+        # Wait, I subtracted units.
+        # Original units = current_data['units'] + units
+        original_units = current_data['units'] + units
+        if original_units > 0:
+            current_data['invested'] = current_data['invested'] * (current_data['units'] / original_units)
+        
+        if current_data['units'] < 0.01: # Cleanup dust
+            del session.mutual_funds[fund_type]
+        else:
+            session.mutual_funds[fund_type] = current_data
+            
+        session.save()
+        
+        return {
+            'session': session,
+            'message': f"Redeemed {units:.2f} units for ₹{int(redemption_value)}."
+        }
+
+    @staticmethod
+    def apply_for_ipo(session, ipo_name, amount):
+        """Apply for an IPO."""
+        GameEngine._refresh_level(session)
+        # Check if IPO is valid and open?
+        # For MVP, we pass name. Check if it exists in schedule for CURRENT month?
+        # Actually logic is: ScenarioCard ("New IPO Open!") -> User clicks Choice -> API call.
+        # But we also have a "Market" tab where they might see "Open IPOs".
+        
+        # Find IPO in schedule
+        # Schedule Key is Month.
+        # find ipo by name
+        ipo_month = None
+        ipo_details = None
+        for m, details in GameEngine.CONFIG['IPO_SCHEDULE'].items():
+            if details['name'] == ipo_name:
+                ipo_month = m
+                ipo_details = details
+                break
+        
+        if not ipo_details:
+             return {'error': "Invalid IPO."}
+             
+        # Check timeline
+        if session.current_month > ipo_month:
+             return {'error': "IPO Closed."}
+        if session.current_month < ipo_month:
+             return {'error': f"IPO opens in month {ipo_month}."}
+             
+        # Check bounds
+        if amount < 10000 or amount > 200000: # Min 10k, Max 2L (retail limit)
+             return {'error': "Investment must be between ₹10k and ₹2L."}
+             
+        if session.wealth < amount:
+             return {'error': "Insufficient funds."}
+             
+        # Check if already applied
+        for app in session.active_ipos:
+            if app['name'] == ipo_name:
+                 return {'error': "Already applied for this IPO."}
+                 
+        # Apply
+        session.wealth -= amount
+        session.active_ipos.append({
+            "name": ipo_name,
+            "amount": amount,
+            "status": "APPLIED",
+            "month": session.current_month
+        })
+        session.save()
+        
+        return {
+            'session': session,
+            'message': f"Applied for {ipo_name} IPO (₹{amount}). Allocation next month."
         }
 
     @staticmethod

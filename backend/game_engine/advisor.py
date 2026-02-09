@@ -1,6 +1,5 @@
-"""
-AI Financial Advisor module for Arth-Neeti game.
-Provides contextual financial advice using Gemini API with intelligent fallback.
+""" AI Financial Advisor module for Arth-Neeti game.
+Provides contextual financial advice using Groq API with intelligent fallback.
 
 Features:
 - Multi-language support (English, Hindi, Marathi)
@@ -8,7 +7,7 @@ Features:
 - Structured advice categories
 - Performance caching
 - Comprehensive error handling
-"""
+- Uses Groq's Llama 3.1 8B model (14,400 free requests/day) """
 
 import os
 import random
@@ -18,13 +17,13 @@ from functools import lru_cache
 from dataclasses import dataclass
 from enum import Enum
 
-# Try to import Google's Generative AI library
+# Try to import Groq library
 try:
-    import google.generativeai as genai
-    GENAI_AVAILABLE = True
+    from groq import Groq
+    GROQ_AVAILABLE = True
 except ImportError:
-    GENAI_AVAILABLE = False
-    genai = None
+    GROQ_AVAILABLE = False
+    Groq = None
 
 
 class Language(Enum):
@@ -44,6 +43,14 @@ class AdviceCategory(Enum):
     GADGETS = 'gadgets'
     INSURANCE = 'insurance'
     GENERAL = 'general'
+
+
+class AdvisorPersona(Enum):
+    """Distinct personalities for the AI advisor."""
+    FRIENDLY = 'friendly' # Default: Encouraging, polite
+    STRICT = 'strict'     # Tough love, direct, risk-averse
+    SASSY = 'sassy'       # Gen-Z humor, sarcastic, relatable
+
 
 
 @dataclass
@@ -120,101 +127,113 @@ class FinancialAdvisor:
             enable_cache: Whether to cache advice responses
             max_retries: Maximum retry attempts for API calls
         """
-        self.api_key = os.environ.get('GEMINI_API_KEY')
-        self.model = None
+        self.api_key = os.environ.get('GROQ_API_KEY')
+        self.client = None
         self.max_retries = max_retries
         self.cache = AdviceCache() if enable_cache else None
 
-        if GENAI_AVAILABLE and self.api_key:
+        if GROQ_AVAILABLE and self.api_key:
             try:
-                genai.configure(api_key=self.api_key)
-                self.model = genai.GenerativeModel('gemini-1.5-flash')
-                print("✅ Gemini AI initialized successfully")
+                self.client = Groq(api_key=self.api_key)
+                print("Groq AI initialized successfully (Llama 3.1 8B)")
             except Exception as e:
-                print(f"❌ Failed to initialize Gemini: {e}")
-                self.model = None
+                print(f"Failed to initialize Groq: {e}")
+                self.client = None
         else:
-            if not GENAI_AVAILABLE:
-                print("⚠️  google-generativeai library not installed. Using fallback advice only.")
+            if not GROQ_AVAILABLE:
+                print("groq library not installed. Using fallback advice only.")
+                print("Install with: pip install groq")
             elif not self.api_key:
-                print("⚠️  GEMINI_API_KEY not set. Using fallback advice only.")
+                print("GROQ_API_KEY not set. Using fallback advice only.")
 
     def get_advice(
         self,
         scenario_title: str,
         scenario_description: str,
-        choices: List[Dict],
-        player_wealth: int,
-        player_happiness: int,
-        language: str = 'en'
+        current_wealth: int,
+        current_happiness: int,
+        language: str = 'en',
+        persona: AdvisorPersona = AdvisorPersona.FRIENDLY
     ) -> AdviceResult:
         """
-        Get financial advice for a scenario.
+        Get personalized financial advice for a given scenario.
         
         Args:
-            scenario_title: Title of the scenario
-            scenario_description: Detailed description
-            choices: List of available choices with impacts
-            player_wealth: Current player wealth
-            player_happiness: Current happiness score
+            scenario_title: Short title of the scenario
+            scenario_description: Full description of the scenario
+            current_wealth: Player's current wealth
+            current_happiness: Player's current happiness level
             language: Language code ('en', 'hi', 'mr')
-        
+            persona: Advisor personality type
+            
         Returns:
-            AdviceResult with advice text and metadata
+            AdviceResult containing advice and metadata
         """
-        # Validate language
-        try:
-            lang_enum = Language(language)
-        except ValueError:
-            lang_enum = Language.ENGLISH
-            language = 'en'
         
         # Check cache first
         if self.cache:
-            cached_advice = self.cache.get(scenario_title, player_wealth, player_happiness, language)
+            cached_advice = self.cache.get(scenario_title, current_wealth, current_happiness, language)
             if cached_advice:
                 return AdviceResult(
                     advice=cached_advice,
                     source='cached',
                     success=True,
-                    language=language
+                    language=language,
+                    confidence=0.9
                 )
         
-        # Detect category
-        category = self._detect_category(scenario_title, scenario_description)
+        # Determine category
+        category = self._categorize_scenario(scenario_title, scenario_description)
         
-        # Try AI first if available
-        if self.model:
-            result = self._get_gemini_advice_with_retry(
-                scenario_title,
-                scenario_description,
-                choices,
-                player_wealth,
-                player_happiness,
-                language,
-                category
-            )
-            
-            if result.success:
-                # Cache successful AI responses
-                if self.cache:
-                    self.cache.set(scenario_title, player_wealth, player_happiness, language, result.advice)
-                return result
+        # Try AI generation first
+        if self.client:
+            for attempt in range(self.max_retries):
+                try:
+                    ai_advice = self._generate_ai_advice(
+                        scenario_title=scenario_title,
+                        scenario_description=scenario_description,
+                        current_wealth=current_wealth,
+                        current_happiness=current_happiness,
+                        language=language,
+                        category=category,
+                        persona=persona
+                    )
+                    
+                    if ai_advice:
+                        # Cache successful advice
+                        if self.cache:
+                            self.cache.set(scenario_title, current_wealth, current_happiness, language, ai_advice)
+                        
+                        return AdviceResult(
+                            advice=ai_advice,
+                            source='ai',
+                            success=True,
+                            language=language,
+                            category=category.value,
+                            confidence=1.0
+                        )
+                
+                except Exception as e:
+                    print(f"AI advice generation failed (attempt {attempt + 1}/{self.max_retries}): {e}")
+                    if attempt < self.max_retries - 1:
+                        # Exponential backoff
+                        time.sleep(2 ** attempt)
+                    continue
         
         # Fallback to curated advice
-        return self._get_fallback_advice(
-            scenario_title,
-            scenario_description,
-            choices,
-            category,
-            language
+        fallback_advice = self._get_fallback_advice(category, language)
+        return AdviceResult(
+            advice=fallback_advice,
+            source='curated',
+            success=True,
+            language=language,
+            category=category.value,
+            confidence=0.7
         )
 
-    def _detect_category(self, title: str, description: str) -> AdviceCategory:
-        """Detect scenario category based on keywords."""
-        title_lower = title.lower()
-        description_lower = description.lower()
-        combined_text = f"{title_lower} {description_lower}"
+    def _categorize_scenario(self, title: str, description: str) -> AdviceCategory:
+        """Categorize scenario based on keywords."""
+        combined_text = f"{title} {description}".lower()
         
         for category, keywords in self.CATEGORY_KEYWORDS.items():
             if any(keyword in combined_text for keyword in keywords):
@@ -222,174 +241,96 @@ class FinancialAdvisor:
         
         return AdviceCategory.GENERAL
 
-    def _get_gemini_advice_with_retry(
+    def _generate_ai_advice(
         self,
-        title: str,
-        description: str,
-        choices: List[Dict],
-        wealth: int,
-        happiness: int,
+        scenario_title: str,
+        scenario_description: str,
+        current_wealth: int,
+        current_happiness: int,
         language: str,
-        category: AdviceCategory
-    ) -> AdviceResult:
-        """Get advice from Gemini API with retry logic."""
-        
-        for attempt in range(self.max_retries):
-            try:
-                result = self._get_gemini_advice(
-                    title, description, choices, wealth, happiness, language, category
-                )
-                return result
-                
-            except Exception as e:
-                print(f"❌ Gemini API attempt {attempt + 1}/{self.max_retries} failed: {e}")
-                
-                if attempt < self.max_retries - 1:
-                    # Exponential backoff: 1s, 2s, 4s
-                    wait_time = 2 ** attempt
-                    print(f"⏳ Retrying in {wait_time}s...")
-                    time.sleep(wait_time)
-                else:
-                    print("❌ All Gemini API attempts failed. Falling back to curated advice.")
-                    return AdviceResult(
-                        advice="",
-                        source='ai',
-                        success=False,
-                        language=language
-                    )
-
-    def _get_gemini_advice(
-        self,
-        title: str,
-        description: str,
-        choices: List[Dict],
-        wealth: int,
-        happiness: int,
-        language: str,
-        category: AdviceCategory
-    ) -> AdviceResult:
-        """Get advice from Gemini API."""
-        
-        # Format choices
-        choices_text = "\n".join([
-            f"- {c['text']} (Wealth: {c.get('wealth_impact', 0):+}, Happiness: {c.get('happiness_impact', 0):+})"
-            for c in choices
-        ])
-        
-        # Language-specific instructions
-        lang_instructions = self._get_language_instructions(language)
-        
-        # Category-specific context
-        category_context = self._get_category_context(category, language)
-        
-        prompt = f"""{lang_instructions['role']}
-
-**Current Status:**
-- Wealth: ₹{wealth:,}
-- Happiness: {happiness}/100
-
-**Scenario Category:** {category.value.title()}
-{category_context}
-
-**Scenario:** {title}
-{description}
-
-**Available Choices:**
-{choices_text}
-
-{lang_instructions['instruction']}
-"""
-
-        response = self.model.generate_content(prompt)
-        advice_text = response.text.strip()
-        
-        return AdviceResult(
-            advice=advice_text,
-            source='ai',
-            success=True,
-            language=language,
-            category=category.value,
-            confidence=0.95  # High confidence for AI responses
-        )
-
-    @staticmethod
-    def _get_language_instructions(language: str) -> Dict[str, str]:
-        """Get language-specific prompt instructions."""
-        
-        instructions = {
-            'en': {
-                'role': "You are a friendly Indian financial advisor in a financial literacy game called Arth-Neeti.",
-                'instruction': "Give brief, practical financial advice (2-3 sentences max) in a friendly tone. Consider the 50-30-20 rule (50% needs, 30% wants, 20% savings). Don't explicitly say which option to pick, but guide them toward smart financial thinking. Use simple language appropriate for someone new to personal finance."
-            },
-            'hi': {
-                'role': "आप अर्थ-नीति नामक वित्तीय साक्षरता खेल में एक मित्रवत भारतीय वित्तीय सलाहकार हैं।",
-                'instruction': "संक्षिप्त, व्यावहारिक वित्तीय सलाह दें (अधिकतम 2-3 वाक्य) मित्रवत भाषा में। 50-30-20 नियम पर विचार करें (50% जरूरतें, 30% इच्छाएं, 20% बचत)। सीधे कौन सा विकल्प चुनना है यह न बताएं, लेकिन उन्हें स्मार्ट वित्तीय सोच की ओर मार्गदर्शन करें। व्यक्तिगत वित्त में नए लोगों के लिए उपयुक्त सरल भाषा का उपयोग करें।"
-            },
-            'mr': {
-                'role': "तुम्ही अर्थ-नीती नावाच्या आर्थिक साक्षरता खेळातील एक मैत्रीपूर्ण भारतीय आर्थिक सल्लागार आहात.",
-                'instruction': "संक्षिप्त, व्यावहारिक आर्थिक सल्ला द्या (जास्तीत जास्त 2-3 वाक्ये) मैत्रीपूर्ण भाषेत. 50-30-20 नियमाचा विचार करा (50% गरजा, 30% इच्छा, 20% बचत). कोणता पर्याय निवडायचा हे स्पष्टपणे सांगू नका, परंतु त्यांना स्मार्ट आर्थिक विचारांकडे मार्गदर्शन करा. वैयक्तिक वित्तामध्ये नवीन असलेल्यांसाठी योग्य सोपी भाषा वापरा."
-            }
-        }
-        
-        return instructions.get(language, instructions['en'])
-
-    @staticmethod
-    def _get_category_context(category: AdviceCategory, language: str) -> str:
-        """Get category-specific context for better advice."""
-        
-        contexts = {
-            'en': {
-                AdviceCategory.SOCIAL: "Context: Social spending can strengthen relationships but shouldn't compromise financial goals.",
-                AdviceCategory.SHOPPING: "Context: Impulse purchases are the #1 budget killer. The 24-hour rule helps avoid regret.",
-                AdviceCategory.INVESTMENT: "Context: Starting early is crucial. Even small SIPs compound significantly over time.",
-                AdviceCategory.DEBT: "Context: High-interest debt (credit cards, instant loans) creates financial traps. Good debt builds assets.",
-                AdviceCategory.EMERGENCY: "Context: Emergency funds prevent debt spirals. Aim for 3-6 months of expenses saved.",
-                AdviceCategory.GADGETS: "Context: Electronics depreciate fast. Consider: need vs want, total cost with interest.",
-                AdviceCategory.INSURANCE: "Context: Insurance is protection, not investment. Term insurance + health cover are essentials.",
-                AdviceCategory.GENERAL: "Context: Financial discipline today creates freedom tomorrow."
-            },
-            'hi': {
-                AdviceCategory.SOCIAL: "संदर्भ: सामाजिक खर्च रिश्तों को मजबूत कर सकता है लेकिन वित्तीय लक्ष्यों से समझौता नहीं करना चाहिए।",
-                AdviceCategory.SHOPPING: "संदर्भ: आवेगपूर्ण खरीदारी बजट का सबसे बड़ा दुश्मन है। 24 घंटे का नियम पछतावे से बचाता है।",
-                AdviceCategory.INVESTMENT: "संदर्भ: जल्दी शुरुआत करना महत्वपूर्ण है। छोटे SIP भी समय के साथ बड़े बनते हैं।",
-                AdviceCategory.DEBT: "संदर्भ: उच्च ब्याज वाले कर्ज (क्रेडिट कार्ड, त्वरित ऋण) वित्तीय जाल बनाते हैं। अच्छा कर्ज संपत्ति बनाता है।",
-                AdviceCategory.EMERGENCY: "संदर्भ: आपातकालीन फंड कर्ज के चक्र से बचाता है। 3-6 महीने के खर्च की बचत रखें।",
-                AdviceCategory.GADGETS: "संदर्भ: इलेक्ट्रॉनिक्स जल्दी सस्ते हो जाते हैं। विचार करें: जरूरत vs चाह, ब्याज सहित कुल लागत।",
-                AdviceCategory.INSURANCE: "संदर्भ: बीमा सुरक्षा है, निवेश नहीं। टर्म इंश्योरेंस + हेल्थ कवर जरूरी हैं।",
-                AdviceCategory.GENERAL: "संदर्भ: आज का वित्तीय अनुशासन कल की स्वतंत्रता बनाता है।"
-            }
-        }
-        
-        lang_contexts = contexts.get(language, contexts['en'])
-        return lang_contexts.get(category, lang_contexts[AdviceCategory.GENERAL])
-
-    def _get_fallback_advice(
-        self,
-        title: str,
-        description: str,
-        choices: List[Dict],
         category: AdviceCategory,
-        language: str
-    ) -> AdviceResult:
-        """
-        Return curated fallback advice based on scenario category.
-        Now supports multiple languages.
-        """
+        persona: AdvisorPersona
+    ) -> Optional[str]:
+        """Generate advice using Groq's Llama 3.1 model."""
         
-        # Get advice pool for category and language
+        if not self.client:
+            return None
+        
+        # Language names for prompt
+        language_names = {
+            'en': 'English',
+            'hi': 'Hindi',
+            'mr': 'Marathi'
+        }
+        
+        # Persona descriptions
+        persona_prompts = {
+            AdvisorPersona.FRIENDLY: "You are a friendly, encouraging financial advisor. Be warm, supportive, and use emojis. Provide clear, actionable advice.",
+            AdvisorPersona.STRICT: "You are a strict, no-nonsense financial advisor. Be direct, emphasize risks, and push for conservative choices. Use tough love.",
+            AdvisorPersona.SASSY: "You are a Gen-Z financial advisor with a sassy, humorous tone. Use relatable language, memes references, and light sarcasm while still being helpful."
+        }
+        
+        # Construct prompt
+        prompt = f"""{persona_prompts[persona]}
+
+The player is facing this financial scenario:
+
+**Scenario**: {scenario_title}
+**Details**: {scenario_description}
+**Current Wealth**: ₹{current_wealth:,}
+**Current Happiness**: {current_happiness}/100
+**Category**: {category.value}
+
+Provide practical financial advice in {language_names.get(language, 'English')} for this scenario. Consider:
+1. The player's current financial situation
+2. Short-term and long-term impacts
+3. Emotional/happiness factors
+4. Indian financial context (if relevant)
+
+Keep your response:
+- Concise (2-3 sentences max)
+- Actionable and specific
+- Culturally appropriate
+- In the specified language ({language_names.get(language, 'English')})
+
+Start with an emoji that fits the advice tone."""
+
+        try:
+            # Call Groq API with Llama 3.1 8B model
+            completion = self.client.chat.completions.create(
+                model="llama-3.1-8b-instant",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                temperature=0.7,
+                max_tokens=200,
+                top_p=0.9,
+                stream=False
+            )
+            
+            advice = completion.choices[0].message.content.strip()
+            return advice if advice else None
+            
+        except Exception as e:
+            print(f"Groq API error: {e}")
+            return None
+
+    def _get_fallback_advice(self, category: AdviceCategory, language: str) -> str:
+        """
+        Get curated fallback advice when AI is unavailable.
+        
+        Args:
+            category: Advice category
+            language: Language code
+            
+        Returns:
+            Random advice from curated pool
+        """
         advice_pool = self._get_advice_pool(category, language)
-        
-        # Select random advice from pool
-        advice = random.choice(advice_pool)
-        
-        return AdviceResult(
-            advice=advice,
-            source='curated',
-            success=True,
-            language=language,
-            category=category.value,
-            confidence=0.8  # Good confidence for curated content
-        )
+        return random.choice(advice_pool)
 
     @staticmethod
     def _get_advice_pool(category: AdviceCategory, language: str) -> List[str]:

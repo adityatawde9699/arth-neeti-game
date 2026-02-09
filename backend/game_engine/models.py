@@ -24,21 +24,22 @@ class PlayerProfile(models.Model):
 
 class PersonaProfile(models.Model):
     class CareerStage(models.TextChoices):
-        STUDENT = 'STUDENT', 'Student'
-        EARLY_CAREER = 'EARLY_CAREER', 'Early Career'
-        MID_CAREER = 'MID_CAREER', 'Mid Career'
-        LATE_CAREER = 'LATE_CAREER', 'Late Career'
+        STUDENT_FULLY_FUNDED = 'STUDENT_FULLY_FUNDED', 'Student (Fully Funded)'
+        STUDENT_PART_TIME = 'STUDENT_PART_TIME', 'Student (Part Time)'
+        FRESHER = 'FRESHER', 'Fresher'
+        PROFESSIONAL = 'PROFESSIONAL', 'Professional'
+        BUSINESS_OWNER = 'BUSINESS_OWNER', 'Business Owner'
         RETIRED = 'RETIRED', 'Retired'
 
     class ResponsibilityLevel(models.TextChoices):
+        LOW = 'LOW', 'Low (No dependents)'
+        MEDIUM = 'MEDIUM', 'Medium (Rent/EMIs)'
+        HIGH = 'HIGH', 'High (Family support)'
+
+    class RiskAppetite(models.TextChoices):
         LOW = 'LOW', 'Low'
         MEDIUM = 'MEDIUM', 'Medium'
         HIGH = 'HIGH', 'High'
-
-    class RiskAppetite(models.TextChoices):
-        CONSERVATIVE = 'CONSERVATIVE', 'Conservative'
-        BALANCED = 'BALANCED', 'Balanced'
-        AGGRESSIVE = 'AGGRESSIVE', 'Aggressive'
 
     session = models.OneToOneField(
         'GameSession',
@@ -50,17 +51,17 @@ class PersonaProfile(models.Model):
     career_stage = models.CharField(
         max_length=20,
         choices=CareerStage.choices,
-        default=CareerStage.EARLY_CAREER,
+        default=CareerStage.FRESHER,
     )
     responsibility_level = models.CharField(
-        max_length=10,
+        max_length=50,
         choices=ResponsibilityLevel.choices,
         default=ResponsibilityLevel.MEDIUM,
     )
     risk_appetite = models.CharField(
         max_length=15,
         choices=RiskAppetite.choices,
-        default=RiskAppetite.BALANCED,
+        default=RiskAppetite.MEDIUM,
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -92,6 +93,10 @@ class GameSession(models.Model):
 
     current_level = models.IntegerField(default=1)
     
+    # --- NEW: Asset Diversification ---
+    real_estate_holdings = models.IntegerField(default=0)  # Value or Units? Let's assume Value for now or generic units
+    gold_holdings = models.IntegerField(default=0)
+    
     # --- NEW: Stock Market 2.0 ---
     # Market prices for each sector (starts at 100)
     market_prices = models.JSONField(default=dict)  # {"gold": 100, "tech": 100, "real_estate": 100}
@@ -99,6 +104,11 @@ class GameSession(models.Model):
     market_trends = models.JSONField(default=dict)  # {"gold": 2, "tech": -5, "real_estate": 0}
     # Player's portfolio (units held per sector)
     portfolio = models.JSONField(default=dict)  # {"gold": 0, "tech": 0, "real_estate": 0}
+    # NEW: Mutual Funds (SIPs and Lumpsum) - {"nifty_50": {"units": 10.5, "invested": 5000}}
+    mutual_funds = models.JSONField(default=dict)
+    # NEW: IPO Applications - [{"name": "Zomato", "amount": 15000, "status": "APPLIED", "month": 5}]
+    active_ipos = models.JSONField(default=list)
+    
     # NEW: Purchase history for profit calculation
     purchase_history = models.JSONField(default=list)  # [{"sector": "tech", "units": 10, "price": 100, "month": 1}]
     
@@ -119,6 +129,7 @@ class GameSession(models.Model):
             self.market_prices = {"gold": 100, "tech": 100, "real_estate": 100}
         if not self.portfolio:
             self.portfolio = {"gold": 0, "tech": 0, "real_estate": 0}
+        # Ensure new fields are initialized if not present (logic handled by default in fields, but good for explicit safety where json defaults matter)
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -130,11 +141,12 @@ class GameSession(models.Model):
 
 class IncomeSource(models.Model):
     class SourceType(models.TextChoices):
+        ALLOWANCE = 'ALLOWANCE', 'Allowance'
         SALARY = 'SALARY', 'Salary'
-        BUSINESS = 'BUSINESS', 'Business'
-        INVESTMENT = 'INVESTMENT', 'Investment'
         FREELANCE = 'FREELANCE', 'Freelance'
         RENTAL = 'RENTAL', 'Rental'
+        DIVIDEND = 'DIVIDEND', 'Dividend'
+        BUSINESS = 'BUSINESS', 'Business'
         OTHER = 'OTHER', 'Other'
 
     class Frequency(models.TextChoices):
@@ -291,6 +303,9 @@ class ScenarioCard(models.Model):
     # NEW: For choices that add recurring expenses
     adds_recurring_expense = models.IntegerField(default=0)  # Amount (0 = no expense)
     expense_name = models.CharField(max_length=100, blank=True)
+    
+    # NEW: AI Generation Flag
+    is_generated = models.BooleanField(default=False)
 
     def __str__(self):
         return f"[{self.category}] {self.title}"

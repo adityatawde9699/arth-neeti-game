@@ -23,4 +23,9 @@ urlpatterns = [
     path('market-status/<int:session_id>/', views.market_status, name='market-status'),
     path('trade/futures/', views.trade_futures, name='trade-futures'),
     path('market/history/<int:session_id>/', views.get_market_history, name='market-history'),
+    
+    # Mutual Funds & IPOs
+    path('market/mutual-fund/invest/', views.invest_mutual_fund, name='invest-mutual-fund'),
+    path('market/mutual-fund/redeem/', views.redeem_mutual_fund, name='redeem-mutual-fund'),
+    path('market/ipo/apply/', views.apply_ipo, name='apply-ipo'),
 ]

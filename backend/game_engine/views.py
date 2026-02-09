@@ -498,7 +498,9 @@ def market_status(request, session_id):
         'portfolio': holdings,
         'total_portfolio_value': portfolio_value,
         'net_worth': session.wealth + portfolio_value,
-        'current_level': session.current_level
+        'current_level': session.current_level,
+        'mutual_funds': session.mutual_funds,
+        'active_ipos': session.active_ipos
     })
 
 
@@ -550,3 +552,93 @@ def get_market_history(request, session_id):
         data[h.sector].append({'month': h.month, 'price': h.price})
         
     return Response(data)
+
+@api_view(['POST'])
+@authentication_classes([FirebaseAuthentication])
+@permission_classes([IsAuthenticated])
+def invest_mutual_fund(request):
+    """Invest in a Mutual Fund."""
+    session_id = request.data.get('session_id')
+    fund_type = request.data.get('fund_type') # NIFTY50, MIDCAP, SMALLCAP
+    amount = request.data.get('amount')
+    
+    if not session_id or not fund_type:
+         return Response({'error': 'Missing params.'}, status=400)
+         
+    try:
+        session = GameSession.objects.get(id=session_id, is_active=True)
+        GameEngine.validate_ownership(request.user, session)
+        
+        result = GameEngine.buy_mutual_fund(session, fund_type, int(amount))
+        
+        if 'error' in result:
+             return Response(result, status=400)
+             
+        return Response({
+            'session': GameSessionSerializer(session).data,
+            'message': result['message']
+        })
+    except (ValueError, TypeError):
+         return Response({'error': 'Invalid amount.'}, status=400)
+    except GameSession.DoesNotExist:
+         return Response({'error': 'Session not found.'}, status=404)
+
+@api_view(['POST'])
+@authentication_classes([FirebaseAuthentication])
+@permission_classes([IsAuthenticated])
+def redeem_mutual_fund(request):
+    """Redeem Mutual Fund units."""
+    session_id = request.data.get('session_id')
+    fund_type = request.data.get('fund_type')
+    units = request.data.get('units')
+    
+    if not session_id or not fund_type:
+         return Response({'error': 'Missing params.'}, status=400)
+         
+    try:
+        session = GameSession.objects.get(id=session_id, is_active=True)
+        GameEngine.validate_ownership(request.user, session)
+        
+        result = GameEngine.sell_mutual_fund(session, fund_type, float(units))
+        
+        if 'error' in result:
+             return Response(result, status=400)
+             
+        return Response({
+            'session': GameSessionSerializer(session).data,
+            'message': result['message']
+        })
+    except (ValueError, TypeError):
+         return Response({'error': 'Invalid units.'}, status=400)
+    except GameSession.DoesNotExist:
+         return Response({'error': 'Session not found.'}, status=404)
+
+@api_view(['POST'])
+@authentication_classes([FirebaseAuthentication])
+@permission_classes([IsAuthenticated])
+def apply_ipo(request):
+    """Apply for an IPO."""
+    session_id = request.data.get('session_id')
+    ipo_name = request.data.get('ipo_name')
+    amount = request.data.get('amount')
+    
+    if not session_id or not ipo_name:
+         return Response({'error': 'Missing params.'}, status=400)
+         
+    try:
+        session = GameSession.objects.get(id=session_id, is_active=True)
+        GameEngine.validate_ownership(request.user, session)
+        
+        result = GameEngine.apply_for_ipo(session, ipo_name, int(amount))
+        
+        if 'error' in result:
+             return Response(result, status=400)
+             
+        return Response({
+            'session': GameSessionSerializer(session).data,
+            'message': result['message']
+        })
+    except (ValueError, TypeError):
+         return Response({'error': 'Invalid amount.'}, status=400)
+    except GameSession.DoesNotExist:
+         return Response({'error': 'Session not found.'}, status=404)
