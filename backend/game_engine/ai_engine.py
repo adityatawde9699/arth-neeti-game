@@ -27,7 +27,13 @@ class GeneratedScenario:
 
 class AIGameMaster:
     """
-    Handles dynamic scenario generation using LLMs (Groq/Llama 3).
+    Handles dynamic scenario generation using LLMs (Groq/Llama 3.1 8B Instant).
+    
+    Uses llama-3.1-8b-instant for fast, efficient scenario generation.
+    This model provides:
+    - Ultra-fast inference (thanks to Groq's LPU)
+    - 14,400 free requests per day
+    - High-quality reasoning for financial scenarios
     """
     
     # Prompt Templates
@@ -74,7 +80,7 @@ class AIGameMaster:
         if GROQ_AVAILABLE and self.api_key:
             try:
                 self.client = Groq(api_key=self.api_key)
-                logger.info("✅ Groq AI initialized successfully")
+                logger.info("✅ Groq AI initialized successfully (llama-3.1-8b-instant)")
             except Exception as e:
                 logger.error(f"❌ Failed to initialize Groq: {e}")
         else:
@@ -116,7 +122,7 @@ class AIGameMaster:
                         "content": prompt
                     }
                 ],
-                model="llama3-70b-8192", # Using Llama 3 70B for better reasoning
+                model="llama-3.1-8b-instant",  # Fast, efficient model with 14,400 free requests/day
                 temperature=0.7,
                 max_tokens=1024,
                 top_p=1,
@@ -160,8 +166,12 @@ class AIGameMaster:
                     is_recommended=False # AI doesn't strictly flag this yet, could improve prompt
                 )
             
+            logger.info(f"✅ Generated scenario: {data['title']}")
             return card
 
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON parsing error: {e}")
+            return None
         except Exception as e:
             logger.error(f"Error generating scenario: {e}")
             return None
