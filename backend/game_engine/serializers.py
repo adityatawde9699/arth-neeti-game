@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import (
     GameSession, ScenarioCard, Choice, RecurringExpense,
-    PlayerProfile, GameHistory, MarketEvent
+    PlayerProfile, GameHistory, MarketEvent, PersonaProfile, IncomeSource
 )
 
 
@@ -92,9 +92,27 @@ class RecurringExpenseSerializer(serializers.ModelSerializer):
         ]
 
 
+class PersonaProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PersonaProfile
+        fields = [
+            'career_stage', 'responsibility_level', 'risk_appetite'
+        ]
+
+
+class IncomeSourceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = IncomeSource
+        fields = [
+            'id', 'source_type', 'amount_base', 'variability', 'frequency'
+        ]
+
+
 class GameSessionSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', read_only=True)
     active_expenses = serializers.SerializerMethodField()
+    income_sources = serializers.SerializerMethodField()
+    persona_profile = PersonaProfileSerializer(read_only=True)
 
     class Meta:
         model = GameSession
@@ -102,14 +120,18 @@ class GameSessionSerializer(serializers.ModelSerializer):
             'id', 'username', 'current_month', 'current_level', 'wealth',
             'happiness', 'credit_score', 'financial_literacy', 
             'lifelines', 'is_active',
+            'real_estate_holdings', 'gold_holdings', 'current_level',
             'market_prices', 'portfolio', 'recurring_expenses',
-            'gameplay_log', 'final_report', 'active_expenses'
+
         ]
         read_only_fields = ['id', 'username', 'financial_literacy', 'lifelines']
 
     def get_active_expenses(self, obj):
         expenses = obj.expenses.filter(is_cancelled=False)
         return RecurringExpenseSerializer(expenses, many=True).data
+
+    def get_income_sources(self, obj):
+        return IncomeSourceSerializer(obj.income_sources.all(), many=True).data
 
 
 class PlayerProfileSerializer(serializers.ModelSerializer):

@@ -22,6 +22,55 @@ class PlayerProfile(models.Model):
         return f"{self.user.username}'s Profile"
 
 
+class PersonaProfile(models.Model):
+    class CareerStage(models.TextChoices):
+        STUDENT = 'STUDENT', 'Student'
+        EARLY_CAREER = 'EARLY_CAREER', 'Early Career'
+        MID_CAREER = 'MID_CAREER', 'Mid Career'
+        LATE_CAREER = 'LATE_CAREER', 'Late Career'
+        RETIRED = 'RETIRED', 'Retired'
+
+    class ResponsibilityLevel(models.TextChoices):
+        LOW = 'LOW', 'Low'
+        MEDIUM = 'MEDIUM', 'Medium'
+        HIGH = 'HIGH', 'High'
+
+    class RiskAppetite(models.TextChoices):
+        CONSERVATIVE = 'CONSERVATIVE', 'Conservative'
+        BALANCED = 'BALANCED', 'Balanced'
+        AGGRESSIVE = 'AGGRESSIVE', 'Aggressive'
+
+    session = models.OneToOneField(
+        'GameSession',
+        on_delete=models.CASCADE,
+        related_name='persona_profile',
+        null=True,
+        blank=True,
+    )
+    career_stage = models.CharField(
+        max_length=20,
+        choices=CareerStage.choices,
+        default=CareerStage.EARLY_CAREER,
+    )
+    responsibility_level = models.CharField(
+        max_length=10,
+        choices=ResponsibilityLevel.choices,
+        default=ResponsibilityLevel.MEDIUM,
+    )
+    risk_appetite = models.CharField(
+        max_length=15,
+        choices=RiskAppetite.choices,
+        default=RiskAppetite.BALANCED,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        if self.session_id:
+            return f"Persona Profile - Session {self.session_id}"
+        return "Persona Profile"
+
+
 # Auto-create profile when user is created
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
@@ -40,6 +89,7 @@ class GameSession(models.Model):
     financial_literacy = models.IntegerField(default=0)  # Hidden Score for persona
     lifelines = models.IntegerField(default=3)      # "Ask NCFE" hints available
     is_active = models.BooleanField(default=True)
+
     current_level = models.IntegerField(default=1)
     
     # --- NEW: Stock Market 2.0 ---
@@ -76,6 +126,32 @@ class GameSession(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+
+
+class IncomeSource(models.Model):
+    class SourceType(models.TextChoices):
+        SALARY = 'SALARY', 'Salary'
+        BUSINESS = 'BUSINESS', 'Business'
+        INVESTMENT = 'INVESTMENT', 'Investment'
+        FREELANCE = 'FREELANCE', 'Freelance'
+        RENTAL = 'RENTAL', 'Rental'
+        OTHER = 'OTHER', 'Other'
+
+    class Frequency(models.TextChoices):
+        MONTHLY = 'MONTHLY', 'Monthly'
+        QUARTERLY = 'QUARTERLY', 'Quarterly'
+        ANNUAL = 'ANNUAL', 'Annual'
+        ONE_TIME = 'ONE_TIME', 'One-time'
+
+    session = models.ForeignKey(GameSession, on_delete=models.CASCADE, related_name='income_sources')
+    source_type = models.CharField(max_length=20, choices=SourceType.choices)
+    amount_base = models.IntegerField(validators=[MinValueValidator(0)])
+    variability = models.FloatField(default=0.0, validators=[MinValueValidator(0.0)])
+    frequency = models.CharField(max_length=20, choices=Frequency.choices)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.source_type} - ₹{self.amount_base}"
 
 
 
