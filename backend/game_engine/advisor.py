@@ -24,6 +24,7 @@ try:
     GENAI_AVAILABLE = True
 except ImportError:
     GENAI_AVAILABLE = False
+    genai = None
 
 
 class Language(Enum):

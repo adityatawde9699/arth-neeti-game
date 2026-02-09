@@ -54,6 +54,10 @@ class GameSession(models.Model):
     # --- NEW: Recurring Expenses ---
     # This acts as a CACHE for the total monthly drain, updated by advance_month
     recurring_expenses = models.IntegerField(default=0)
+
+    # --- NEW: Gameplay Log & Final Report ---
+    gameplay_log = models.TextField(blank=True, default="")
+    final_report = models.TextField(blank=True, default="")
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

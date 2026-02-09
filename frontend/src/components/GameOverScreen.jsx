@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 import Confetti from './Confetti';
 import { api } from '../api';
 import { playSound } from '../utils/sound';
@@ -233,6 +234,7 @@ const GameOverScreen = ({ session, persona, reason, onPlayAgain }) => {
                                 <button className={`report-tab ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>Overview</button>
                                 <button className={`report-tab ${activeTab === 'analysis' ? 'active' : ''}`} onClick={() => setActiveTab('analysis')}>Analysis</button>
                                 <button className={`report-tab ${activeTab === 'recommendations' ? 'active' : ''}`} onClick={() => setActiveTab('recommendations')}>Recommendations</button>
+                                <button className={`report-tab ${activeTab === 'ai_report' ? 'active' : ''}`} onClick={() => setActiveTab('ai_report')}>AI Report</button>
                             </div>
 
                             <div className="report-body">
@@ -441,6 +443,18 @@ const GameOverScreen = ({ session, persona, reason, onPlayAgain }) => {
                                                     </div>
                                                 </a>
                                             </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {activeTab === 'ai_report' && (
+                                    <div className="report-tab-content">
+                                        <div className="report-section-card report-markdown">
+                                            {session?.final_report ? (
+                                                <ReactMarkdown>{session.final_report}</ReactMarkdown>
+                                            ) : (
+                                                <p>No AI report is available for this session yet.</p>
+                                            )}
                                         </div>
                                     </div>
                                 )}
