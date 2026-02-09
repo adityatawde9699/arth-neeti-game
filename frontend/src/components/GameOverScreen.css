@@ -542,6 +542,35 @@
     font-size: 1.1rem;
 }
 
+.report-markdown {
+    color: #e2e8f0;
+    line-height: 1.6;
+}
+
+.report-markdown h1,
+.report-markdown h2,
+.report-markdown h3 {
+    color: white;
+    margin: 0 0 0.75rem 0;
+}
+
+.report-markdown h2 {
+    font-size: 1.25rem;
+}
+
+.report-markdown ul {
+    padding-left: 1.25rem;
+    margin: 0.75rem 0;
+}
+
+.report-markdown li {
+    margin-bottom: 0.4rem;
+}
+
+.report-markdown strong {
+    color: #f8fafc;
+}
+
 /* Portfolio Breakdown */
 .portfolio-breakdown {
     display: flex;

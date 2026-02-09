@@ -1,9 +1,11 @@
+import os
 import random
 import uuid
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
 from .models import GameSession, PlayerChoice, RecurringExpense, GameHistory, PlayerProfile, ScenarioCard, StockHistory, FuturesContract
 from .ml.predictor import MarketPredictor
+from .advisor import GENAI_AVAILABLE, genai
 
 class GameEngine:
     # Game Configuration Constants
@@ -21,6 +23,21 @@ class GameEngine:
         'MONTHLY_SALARY': 25000,
         'STOCK_SECTORS': ['gold', 'tech', 'real_estate']
     }
+    REPORT_PROMPT_TEMPLATE = (
+        "You are an expert financial coach. Generate a concise Markdown report for the player. "
+        "Use the sections: Summary, Highlights, Risks, Recommendations. "
+        "Be supportive, specific, and keep it under 400 words.\n\n"
+        "Game outcome reason: {reason}\n"
+        "Final month: {current_month}\n"
+        "Final wealth: ₹{wealth}\n"
+        "Final happiness: {happiness}\n"
+        "Final credit score: {credit_score}\n"
+        "Financial literacy: {financial_literacy}\n"
+        "Recurring expenses: ₹{recurring_expenses}\n"
+        "Portfolio value: ₹{portfolio_value}\n"
+        "Portfolio breakdown: {portfolio_breakdown}\n\n"
+        "Gameplay log:\n{gameplay_log}\n"
+    )
 
     # ================= SECURITY =================
     @staticmethod
@@ -156,6 +173,14 @@ class GameEngine:
     @staticmethod
     def process_choice(session, card, choice):
         """Main game loop step."""
+        GameEngine._append_gameplay_log(
+            session,
+            (
+                f"Month {session.current_month}: {card.title} — {choice.text}. "
+                f"Impact: wealth {choice.wealth_impact:+}, happiness {choice.happiness_impact:+}, "
+                f"credit {choice.credit_impact:+}, literacy {choice.literacy_impact:+}."
+            ),
+        )
         
         # 1. Apply Direct Impacts
         session.wealth += choice.wealth_impact
@@ -234,6 +259,7 @@ class GameEngine:
             feedback_parts.append(result['report'])
             
             if result['game_over']:
+                GameEngine._finalize_game(session, result['game_over_reason'])
                 return {
                     'session': session,
                     'feedback': " ".join(feedback_parts),
@@ -245,10 +271,9 @@ class GameEngine:
         # 6. Check Game Over (Immediate, e.g. from choice impact)
         game_over, reason = GameEngine._check_game_over(session)
         if game_over:
-            session.is_active = False
             GameEngine._finalize_game(session, reason)
-
-        session.save()
+        else:
+            session.save()
 
         return {
             'session': session,
@@ -275,17 +300,31 @@ class GameEngine:
         elif card.category == 'INVESTMENT':
             credit_loss = 10  # Missed opportunity
 
+        GameEngine._append_gameplay_log(
+            session,
+            (
+                f"Month {session.current_month}: Skipped {card.title}. "
+                f"Penalty: happiness -{happiness_loss}, credit -{credit_loss}."
+            ),
+        )
+
         session.happiness = max(0, session.happiness - happiness_loss)
         session.credit_score = max(300, session.credit_score - credit_loss)
         
         # Log as skipped (choice=None)
         PlayerChoice.objects.create(session=session, card=card, choice=None)
 
-        session.save()
+        game_over, reason = GameEngine._check_game_over(session)
+        if game_over:
+            GameEngine._finalize_game(session, reason)
+        else:
+            session.save()
         
         return {
             'message': f"Skipped! Penalty: -{happiness_loss} Happiness, -{credit_loss} Credit Score.",
-            'session': session
+            'session': session,
+            'game_over': game_over,
+            'game_over_reason': reason
         }
 
     # ================= ECONOMICS & MARKET =================
@@ -463,10 +502,75 @@ class GameEngine:
 
     @staticmethod
     def _finalize_game(session, reason):
-        # ... (Same as before) ...
-        # Copied for completeness or import from existing logic
+        session.is_active = False
+        if not session.final_report:
+            session.final_report = GameEngine._generate_final_report(session, reason)
+        session.save()
         GameEngine._save_history(session, reason)
 
+    @staticmethod
+    def _append_gameplay_log(session, entry):
+        entry = entry.strip()
+        if not entry:
+            return
+        if session.gameplay_log:
+            session.gameplay_log = f"{session.gameplay_log}\n{entry}"
+        else:
+            session.gameplay_log = entry
+
+    @staticmethod
+    def _generate_final_report(session, reason):
+        portfolio_value = 0
+        portfolio_lines = []
+        if session.portfolio and session.market_prices:
+            for sector, units in session.portfolio.items():
+                price = session.market_prices.get(sector, 100)
+                value = int(units * price)
+                portfolio_value += value
+                if units:
+                    portfolio_lines.append(f"{sector.title()}: {units:.2f} units @ ₹{price} (₹{value})")
+        portfolio_breakdown = "; ".join(portfolio_lines) if portfolio_lines else "No active holdings."
+        gameplay_log = session.gameplay_log or "No gameplay log recorded."
+
+        prompt = GameEngine.REPORT_PROMPT_TEMPLATE.format(
+            reason=reason,
+            current_month=session.current_month,
+            wealth=session.wealth,
+            happiness=session.happiness,
+            credit_score=session.credit_score,
+            financial_literacy=session.financial_literacy,
+            recurring_expenses=session.recurring_expenses,
+            portfolio_value=portfolio_value,
+            portfolio_breakdown=portfolio_breakdown,
+            gameplay_log=gameplay_log,
+        )
+
+        if GENAI_AVAILABLE and genai and os.environ.get('GEMINI_API_KEY'):
+            try:
+                genai.configure(api_key=os.environ.get('GEMINI_API_KEY'))
+                model = genai.GenerativeModel('gemini-1.5-flash')
+                response = model.generate_content(prompt)
+                if response and getattr(response, 'text', None):
+                    return response.text.strip()
+            except Exception:
+                pass
+
+        return (
+            "## Summary\n"
+            f"- Outcome: **{reason}** after month **{session.current_month}**.\n"
+            f"- Final cash: **₹{session.wealth}**. Portfolio value: **₹{portfolio_value}**.\n"
+            f"- Happiness: **{session.happiness}**. Credit score: **{session.credit_score}**.\n\n"
+            "## Highlights\n"
+            f"- Portfolio: {portfolio_breakdown}\n"
+            f"- Recurring expenses: ₹{session.recurring_expenses}\n\n"
+            "## Risks\n"
+            "- Watch cash flow relative to recurring bills.\n"
+            "- Keep credit score healthy by avoiding high-interest debt.\n\n"
+            "## Recommendations\n"
+            "- Build a 3–6 month emergency fund.\n"
+            "- Automate savings with a monthly SIP.\n"
+            "- Review recurring expenses and cancel low-value subscriptions.\n"
+        )
     @staticmethod
     def _save_history(session, reason):
         persona_data = GameEngine.generate_persona(session)
