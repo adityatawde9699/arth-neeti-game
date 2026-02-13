@@ -8,11 +8,15 @@ from ..models import GameHistory, PlayerProfile
 from ..advisor import GROQ_AVAILABLE as GENAI_AVAILABLE
 from .config import GameEngineConfig, REPORT_PROMPT_TEMPLATE
 
-# Optional: Google Generative AI for final reports
+# Optional: Google GenAI for final reports
 try:
-    import google.generativeai as genai
+    from google import genai
 except ImportError:
     genai = None
+
+# ... (omitted lines)
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -61,12 +65,15 @@ class ReportService:
 
         if GENAI_AVAILABLE and genai and os.environ.get('GEMINI_API_KEY'):
             try:
-                genai.configure(api_key=os.environ.get('GEMINI_API_KEY'))
-                model = genai.GenerativeModel('gemini-1.5-flash')
-                response = model.generate_content(prompt)
+                client = genai.Client(api_key=os.environ.get('GEMINI_API_KEY'))
+                response = client.models.generate_content(
+                    model='gemini-1.5-flash',
+                    contents=prompt
+                )
                 if response and getattr(response, 'text', None):
                     return response.text.strip()
-            except Exception:
+            except Exception as e:
+                logger.error("GenAI report failed: %s", e)
                 pass
 
         return (

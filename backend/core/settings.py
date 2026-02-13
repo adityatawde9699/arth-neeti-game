@@ -76,7 +76,7 @@ MIDDLEWARE = [
 # Set CORS_ALLOWED_ORIGINS env var as comma-separated URLs, e.g.:
 # CORS_ALLOWED_ORIGINS=https://arth-neeti.vercel.app,http://localhost:5173
 _cors_origins = os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:5173,http://127.0.0.1:5173')
-CORS_ALLOWED_ORIGINS = [origin.strip() for origin in _cors_origins.split(',') if origin.strip()]
+CORS_ALLOWED_ORIGINS = [origin.strip().strip('/') for origin in _cors_origins.split(',') if origin.strip()]
 CORS_ALLOW_CREDENTIALS = True
 
 ROOT_URLCONF = 'core.urls'
