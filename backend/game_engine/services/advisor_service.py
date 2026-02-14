@@ -68,7 +68,7 @@ class AdvisorService:
         debt_ratio = total_debt_emi / max(net_worth, 1) if net_worth > 0 else 1.0
 
         # --- 1. VASOOLI BHAI: Debt Crisis ---
-        if debt_ratio > 0.5 or total_debt_emi > (session.wealth * 0.4):
+        if session.credit_score < 600 or debt_ratio > 0.5:
             msg = advisor.get_character_message(
                 character='vasooli',
                 trigger_reason=f"Debt EMI is ₹{total_debt_emi}/mo, which is {debt_ratio * 100:.0f}% of net worth",
@@ -124,14 +124,19 @@ class AdvisorService:
         except Exception:
             pass
 
-        initial_wealth = CONFIG['STARTING_WEALTH']
-        wealth_drop_pct = (initial_wealth - session.wealth) / max(initial_wealth, 1)
+        # Check Cash Flow (Expenses > Income)
+        total_income = sum(src.amount_base for src in session.income_sources.all())
+        # Fallback if no income sources yet (rare)
+        if total_income == 0: 
+            total_income = 1 # Prevent div by zero logical errors if needed, but here just comparison
 
-        if is_business or wealth_drop_pct > 0.10:
+        is_deficit = session.recurring_expenses > total_income
+
+        if is_business or is_deficit:
             msg = advisor.get_character_message(
                 character='jetta',
                 trigger_reason=(
-                    f"Business profile or wealth dropped {wealth_drop_pct * 100:.0f}% from start"
+                    f"Expenses (₹{session.recurring_expenses}) > Income (₹{total_income})"
                     if not is_business
                     else "Business Owner profile — Jetta Bhai monitors your margins"
                 ),

@@ -14,7 +14,7 @@ from django.core.exceptions import PermissionDenied
 
 from ..models import (
     GameSession, PlayerChoice, RecurringExpense, ScenarioCard,
-    StockHistory, IncomeSource, MarketTickerData
+    StockHistory, IncomeSource, MarketTickerData, PersonaProfile
 )
 from ..ml.predictor import AIStockPredictor
 from ..advisor import GROQ_AVAILABLE as GENAI_AVAILABLE, get_advisor, AdvisorPersona
@@ -51,9 +51,63 @@ class GameService:
             credit_score=CONFIG['CREDIT_SCORE_START'],
             current_month=CONFIG['START_MONTH']
         )
+        
+        # --- Generate Persona & Income ---
+        # Randomly assign a career stage for variety, or could be user-selected in future
+        career_stage = random.choice(PersonaProfile.CareerStage.values)
+        
+        # Adjust starting stats based on Career
+        if career_stage == 'STUDENT_FULLY_FUNDED':
+            session.wealth = 5000
+            session.credit_score = 650
+            income_amount = 5000
+            income_source = 'ALLOWANCE'
+        elif career_stage == 'STUDENT_PART_TIME':
+            session.wealth = 10000
+            session.credit_score = 680
+            income_amount = 8000
+            income_source = 'FREELANCE'
+        elif career_stage == 'FRESHER':
+            session.wealth = 20000
+            session.credit_score = 700
+            income_amount = 25000
+            income_source = 'SALARY'
+        elif career_stage == 'PROFESSIONAL':
+            session.wealth = 100000
+            session.credit_score = 750
+            income_amount = 80000
+            income_source = 'SALARY'
+        elif career_stage == 'BUSINESS_OWNER':
+            session.wealth = 50000
+            session.credit_score = 720
+            income_amount = 60000
+            income_source = 'BUSINESS'
+        elif career_stage == 'RETIRED':
+            session.wealth = 500000
+            session.credit_score = 800
+            income_amount = 30000
+            income_source = 'OTHER' # Pension
+        
         session.current_level = GameService._calculate_level(session)
         session.market_trends = {s: 0 for s in CONFIG['STOCK_SECTORS']}
         session.save()
+        
+        # Create Persona Profile
+        PersonaProfile.objects.create(
+            session=session,
+            career_stage=career_stage,
+            responsibility_level=PersonaProfile.ResponsibilityLevel.MEDIUM, # Default
+            risk_appetite=PersonaProfile.RiskAppetite.MEDIUM
+        )
+        
+        # Create Primary Income Source
+        IncomeSource.objects.create(
+            session=session,
+            source_type=income_source,
+            amount_base=income_amount,
+            variability=0.1 if income_source in ['BUSINESS', 'FREELANCE'] else 0.0,
+            frequency='MONTHLY'
+        )
 
         # --- Generate Deterministic Market History ---
         ticker = 'RELIANCE.NS'
@@ -430,6 +484,19 @@ class GameService:
         session.wealth += total_income
         report_lines.extend(income_report_lines)
 
+        # 2.5. SCAM / DATA BREACH CHECK (Instant Loan Risk)
+        # If user has an active INSTANT_APP loan, 15% chance of data breach
+        active_instant_loans = RecurringExpense.objects.filter(
+            session=session, 
+            name="High Interest Loan", 
+            is_cancelled=False
+        )
+        if active_instant_loans.exists():
+            if random.random() < 0.15:
+                # Trigger Data Breach
+                session.happiness -= 15
+                report_lines.append("⚠️ DATA BREACH! Your loan app leaked your contacts. Harassment calls caused stress (-15 Happiness).")
+
         # 3. Recurring Expenses & Inflation
         active_expenses = session.expenses.filter(is_cancelled=False)
         total_monthly_drain = 0
@@ -575,6 +642,29 @@ class GameService:
                 started_month=session.current_month
             )
             msg = f"Loan approved: ₹{amount}. Credit score dropped. Monthly interest added."
+        
+        elif loan_type == 'BANK':
+            amount = 100000
+            if session.credit_score < 750:
+                return {'error': "Bank Loan rejected. Requires Credit Score > 750."}
+            
+            session.wealth += amount
+            # Bank loan doesn't drop credit score immediately, but adds EMI
+            
+            # EMI Calculation (Simple rule roughly 1% per month for safety in game balance)
+            emi = 1200 
+            
+            RecurringExpense.objects.create(
+                session=session,
+                name="Bank Personal Loan",
+                amount=emi,
+                category='DEBT',
+                is_essential=True,
+                inflation_rate=0.0,
+                started_month=session.current_month
+            )
+            msg = f"Bank Loan approved: ₹{amount}. EMI ₹{emi}/mo started."
+
         else:
             return {'error': "Invalid loan type"}
 

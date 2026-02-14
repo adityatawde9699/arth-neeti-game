@@ -18,6 +18,13 @@ const LOAN_TYPES = {
         interest: 5,
         description: 'Quick loan - high interest, damages credit score',
         color: 'red'
+    },
+    BANK: {
+        name: 'Bank Personal Loan',
+        amount: 100000,
+        interest: 1.2,
+        description: 'Standard loan. Requires Credit Score > 750',
+        color: 'blue'
     }
 };
 

@@ -76,13 +76,31 @@ backend/
 
 ## 🤖 AI Integration
 
-### Provider: Google Gemini 1.5 Flash
-The `advisor.py` module constructs a prompt with:
-1.  Player's current financials (Wealth, Salary).
-2.  The specific scenario and choices.
-3.  Request for "Friendly Indian Financial Advisor" persona.
+### Provider: Hybrid (Groq Llama 3.1 + Google Gemini 1.5)
+The `advisor.py` module uses a sophisticated hybrid approach:
 
-**Fallback:** If the API Key is missing or quota exceeded, a Keyword-based heuristic engine returns pre-written advice safe for gameplay.
+1.  **Primary Engine**: **Groq (Llama 3.1 8B)**.
+    *   Lightning-fast inference for real-time chat.
+    *   Generates responses for 7 distinct personas.
+2.  **Secondary Engine**: **Google Gemini 1.5 Flash**.
+    *   Used for generating the detailed end-of-game "Financial Health Report".
+3.  **Fallback**: Keyword-based heuristic engine if APIs are unreachable.
+
+### 🎭 AI Personas
+The system supports 7 distinct advisor personalities, selected via the frontend:
+*   `FRIENDLY`: Default, polite, and encouraging.
+*   `STRICT`: Risk-averse, "tough love" style.
+*   **Contextual Characters**:
+    *   `HARSHAD`: "Risk hai toh ishq hai!" - Pushes high-risk stocks.
+    *   `JETTA`: Business guru focused on profit margins.
+    *   `VASOOLI`: Comedic debt collector who appears when loans are overdue.
+    *   `SUNDAR`: Scamster offering tempting but fraudulent schemes.
+
+### ⚡ Proactive Advice
+The system doesn't just wait for user input. It proactively triggers advice based on game state:
+*   **Low Health**: Triggers medical insurance advice.
+*   **High Debt**: Triggers "Vasooli" warnings.
+*   **Windfall**: Triggers investment advice when cash > ₹50k.
 
 ## 🔐 Authentication
 

@@ -519,7 +519,8 @@ def market_status(request, session_id):
         'net_worth': session.wealth + portfolio_value,
         'current_level': session.current_level,
         'mutual_funds': session.mutual_funds,
-        'active_ipos': session.active_ipos
+        'active_ipos': session.active_ipos,
+        'ipo_schedule': GameEngine.CONFIG['IPO_SCHEDULE']
     })
 
 

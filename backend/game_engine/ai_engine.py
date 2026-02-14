@@ -48,6 +48,7 @@ class AIGameMaster:
         "Generate a financial scenario for a player with the following profile:\n"
         "- Career Stage: {career_stage}\n"
         "- Risk Appetite: {risk_appetite}\n"
+        "- Responsibility Level: {responsibility_level}\n"
         "- Current Wealth: ₹{wealth}\n"
         "- Current Month: {month}\n\n"
         "{career_context}\n\n"
@@ -148,6 +149,7 @@ class AIGameMaster:
         prompt = self.SCENARIO_PROMPT_TEMPLATE.format(
             career_stage=career_display,
             risk_appetite=profile.get_risk_appetite_display(),
+            responsibility_level=profile.get_responsibility_level_display(),
             wealth=wealth,
             month=month,
             category=category,

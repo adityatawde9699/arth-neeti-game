@@ -157,6 +157,42 @@ export const api = {
         return handleResponse(response);
     },
 
+    async investMutualFund(sessionId, fundType, amount) {
+        const response = await fetch(`${API_BASE_URL}/mutual-fund/invest/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
+            body: JSON.stringify({ session_id: sessionId, fund_type: fundType, amount }),
+        });
+        return handleResponse(response);
+    },
+
+    async redeemMutualFund(sessionId, fundType, units) {
+        const response = await fetch(`${API_BASE_URL}/mutual-fund/redeem/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
+            body: JSON.stringify({ session_id: sessionId, fund_type: fundType, units }),
+        });
+        return handleResponse(response);
+    },
+
+    async applyIPO(sessionId, ipoName, amount) {
+        const response = await fetch(`${API_BASE_URL}/ipo/apply/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
+            body: JSON.stringify({ session_id: sessionId, ipo_name: ipoName, amount }),
+        });
+        return handleResponse(response);
+    },
+
+    async tradeFutures(sessionId, sector, units, duration) {
+        const response = await fetch(`${API_BASE_URL}/futures/trade/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
+            body: JSON.stringify({ session_id: sessionId, sector, units, duration }),
+        });
+        return handleResponse(response);
+    },
+
     // --- CHATBOT ---
     async respondToChatbot(sessionId, character, accepted, scamLossAmount = 0) {
         const response = await fetch(`${API_BASE_URL}/chatbot/respond/`, {

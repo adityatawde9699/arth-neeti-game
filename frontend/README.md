@@ -32,7 +32,7 @@ frontend/
 ### 🎮 Game Interface
 *   **HUD**: Persistent top bar showing Wealth, Happiness, and Credit Score.
 *   **Budget Preview**: Visual breakdown of income vs expenses (Rent, Food, etc.).
-*   **Bilingual Toggle**: Switch between English (En) and Hindi (Hi) instantly.
+*   **Trilingual Toggle**: Switch between **English**, **Hindi**, and **Marathi** instantly.
 
 ### 📈 Stock Market Page
 *   **Three Sectors**: Gold, Technology, Real Estate.
@@ -48,7 +48,8 @@ frontend/
 ### 👤 Profile & Reports
 *   **Player History**: List of all past games and scores.
 *   **Achievements**: Badges like "Debt Free", "Wealthy", "Survivor".
-*   **Printable Report**: A detailed "Financial Health Report" generated at Game Over.
+*   **AI Report**: A dedicated tab for the detailed Gemini-generated analysis.
+*   **Printable Report**: A "Financial Health Report" generated at Game Over.
 
 ## 🎨 Styling
 
