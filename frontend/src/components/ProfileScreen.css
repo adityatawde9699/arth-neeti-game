@@ -95,6 +95,32 @@
     margin: 0;
 }
 
+.active-persona-badge {
+    margin-top: 0.75rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: rgba(139, 92, 246, 0.15);
+    border: 1px solid rgba(139, 92, 246, 0.3);
+    border-radius: 9999px;
+    font-size: 0.9rem;
+    color: #e2e8f0;
+}
+
+.active-persona-badge strong {
+    color: #a78bfa;
+    text-transform: capitalize;
+}
+
+.risk-tag {
+    font-size: 0.8rem;
+    opacity: 0.8;
+    margin-left: 0.25rem;
+    padding-left: 0.5rem;
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+
 .stats-grid {
     max-width: 1200px;
     margin: 0 auto 2rem;

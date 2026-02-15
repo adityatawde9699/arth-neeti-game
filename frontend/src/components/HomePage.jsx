@@ -4,10 +4,13 @@ import './HomePage.css';
 import BudgetDisplay from './BudgetDisplay';
 import LanguageSwitcher from './LanguageSwitcher';
 import { useTranslation } from 'react-i18next';
+import { useState } from 'react';
+import GameSetupModal from './GameSetupModal';
 
 const HomePage = ({ onStartGame, isLoading, username }) => {
     const navigate = useNavigate();
     const { t } = useTranslation();
+    const [showModal, setShowModal] = useState(false);
 
     // Data moved inside component to allow dynamic translation
     const expenses = [
@@ -40,7 +43,7 @@ const HomePage = ({ onStartGame, isLoading, username }) => {
                 <h1 className="hero-title">Arth-Neeti</h1>
                 <p className="hero-subtitle">{t('home.hero.subtitle')}</p>
                 <p className="hero-description">{t('home.hero.description')}</p>
-                <button className="cta-button" onClick={onStartGame} disabled={isLoading}>
+                <button className="cta-button" onClick={() => setShowModal(true)} disabled={isLoading}>
                     {isLoading ? (
                         <>
                             <span className="loading-spinner-small"></span>
@@ -185,6 +188,15 @@ const HomePage = ({ onStartGame, isLoading, username }) => {
                     </div>
                 </div>
             </div>
+            {/* Game Setup Modal */}
+            <GameSetupModal
+                isOpen={showModal}
+                onClose={() => setShowModal(false)}
+                onConfirm={(data) => {
+                    setShowModal(false);
+                    onStartGame(data);
+                }}
+            />
         </div>
     );
 };

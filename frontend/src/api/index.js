@@ -48,13 +48,14 @@ export const api = {
     },
 
     // --- GAME SESSION ---
-    async startGame() {
+    async startGame(data) {
         const response = await fetch(`${API_BASE_URL}/start-game/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 ...(await getAuthHeaders()),
             },
+            body: JSON.stringify(data || {}), 
         });
         return handleResponse(response);
     },

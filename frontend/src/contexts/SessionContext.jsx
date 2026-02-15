@@ -22,18 +22,18 @@ export const SessionProvider = ({ children }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
-    const startGame = useCallback(async () => {
+    const startGame = useCallback(async (data) => {
         setLoading(true);
         setError(null);
         try {
-            if (import.meta.env.DEV) console.log('🎮 Starting new game session...');
-            const data = await api.startGame();
-            if (import.meta.env.DEV) console.log('✅ Game session started:', data.session.id);
-            
-            setSession(data.session);
-            localStorage.setItem(SESSION_STORAGE_KEY, data.session.id);
-            
-            return data.session;
+            if (import.meta.env.DEV) console.log('🎮 Starting new game session...', data);
+            const responseData = await api.startGame(data);
+            if (import.meta.env.DEV) console.log('✅ Game session started:', responseData.session.id);
+
+            setSession(responseData.session);
+            localStorage.setItem(SESSION_STORAGE_KEY, responseData.session.id);
+
+            return responseData.session;
         } catch (err) {
             if (import.meta.env.DEV) console.error('❌ Failed to start game:', err);
             setError(err.message);

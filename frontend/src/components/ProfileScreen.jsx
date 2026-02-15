@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
+import { useSession } from '../contexts/SessionContext';
 import './ProfileScreen.css';
 
 export default function ProfileScreen({ onBack, onLogout }) {
     const navigate = useNavigate();
+    const { session } = useSession(); // Get active session
     const [profileData, setProfileData] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -78,6 +80,14 @@ export default function ProfileScreen({ onBack, onLogout }) {
                 <div className="profile-info">
                     <h2 className="profile-name">{username}</h2>
                     <p className="profile-email">Member since {new Date().getFullYear()}</p>
+
+                    {/* Active Session Persona */}
+                    {session && session.is_active && session.persona_profile && (
+                        <div className="active-persona-badge">
+                            Playing as: <strong>{session.persona_profile.career_stage?.replace('_', ' ')}</strong>
+                            <span className="risk-tag">({session.persona_profile.risk_appetite} Risk)</span>
+                        </div>
+                    )}
                 </div>
             </div>
 

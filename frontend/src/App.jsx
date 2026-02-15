@@ -296,14 +296,14 @@ function AppRoutes() {
     const isStartingRef = useRef(false);
     const [isStarting, setIsStarting] = useState(false);
 
-    const handleStartGame = useCallback(async () => {
+    const handleStartGame = useCallback(async (formData) => {
         if (isStartingRef.current) return;
 
         isStartingRef.current = true;
         setIsStarting(true);
 
         try {
-            await startGame();
+            await startGame(formData);
             navigate('/game');
         } catch (err) {
             if (import.meta.env.DEV) console.error('Failed to start game:', err);

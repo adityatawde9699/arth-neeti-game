@@ -40,55 +40,65 @@ class GameService:
 
     # ================= SESSION MANAGEMENT =================
     @staticmethod
-    def start_new_session(user):
-        """Initialize a new game session with defaults."""
+    def start_new_session(user, career_stage=None, risk_appetite=None, user_name=None):
+        """Initialize a new game session with optional user choices."""
         from django.db import transaction
         CONFIG = GameEngineConfig.CONFIG
+
+        # Default values if not provided
+        if not career_stage:
+            career_stage = random.choice(PersonaProfile.CareerStage.values)
+        
+        if not risk_appetite:
+            risk_appetite = PersonaProfile.RiskAppetite.MEDIUM
+
+        # Set financial stats based on Career Stage
+        if career_stage == 'STUDENT_FULLY_FUNDED':
+            wealth = 5000
+            credit_score = 650
+            income_amount = 5000
+            income_source_type = 'ALLOWANCE'
+        elif career_stage == 'STUDENT_PART_TIME':
+            wealth = 10000
+            credit_score = 680
+            income_amount = 8000
+            income_source_type = 'FREELANCE'
+        elif career_stage == 'FRESHER':
+            wealth = 20000
+            credit_score = 700
+            income_amount = 25000
+            income_source_type = 'SALARY'
+        elif career_stage == 'PROFESSIONAL':
+            wealth = 100000
+            credit_score = 750
+            income_amount = 80000
+            income_source_type = 'SALARY'
+        elif career_stage == 'BUSINESS_OWNER':
+            wealth = 50000
+            credit_score = 720
+            income_amount = 60000
+            income_source_type = 'BUSINESS'
+        elif career_stage == 'RETIRED':
+            wealth = 500000
+            credit_score = 800
+            income_amount = 30000
+            income_source_type = 'OTHER' # Pension
+        else:
+            # Fallback
+            wealth = CONFIG['STARTING_WEALTH']
+            credit_score = CONFIG['CREDIT_SCORE_START']
+            income_amount = CONFIG['MONTHLY_SALARY']
+            income_source_type = 'SALARY'
 
         with transaction.atomic():
             session = GameSession.objects.create(
                 user=user,
-                wealth=CONFIG['STARTING_WEALTH'],
+                wealth=wealth,
                 happiness=CONFIG['HAPPINESS_START'],
-                credit_score=CONFIG['CREDIT_SCORE_START'],
-                current_month=CONFIG['START_MONTH']
+                credit_score=credit_score,
+                current_month=CONFIG['START_MONTH'],
+                monthly_salary=income_amount  # Set dynamic salary
             )
-        
-        # --- Generate Persona & Income ---
-        # Randomly assign a career stage for variety, or could be user-selected in future
-        career_stage = random.choice(PersonaProfile.CareerStage.values)
-        
-        # Adjust starting stats based on Career
-        if career_stage == 'STUDENT_FULLY_FUNDED':
-            session.wealth = 5000
-            session.credit_score = 650
-            income_amount = 5000
-            income_source = 'ALLOWANCE'
-        elif career_stage == 'STUDENT_PART_TIME':
-            session.wealth = 10000
-            session.credit_score = 680
-            income_amount = 8000
-            income_source = 'FREELANCE'
-        elif career_stage == 'FRESHER':
-            session.wealth = 20000
-            session.credit_score = 700
-            income_amount = 25000
-            income_source = 'SALARY'
-        elif career_stage == 'PROFESSIONAL':
-            session.wealth = 100000
-            session.credit_score = 750
-            income_amount = 80000
-            income_source = 'SALARY'
-        elif career_stage == 'BUSINESS_OWNER':
-            session.wealth = 50000
-            session.credit_score = 720
-            income_amount = 60000
-            income_source = 'BUSINESS'
-        elif career_stage == 'RETIRED':
-            session.wealth = 500000
-            session.credit_score = 800
-            income_amount = 30000
-            income_source = 'OTHER' # Pension
         
         session.current_level = GameService._calculate_level(session)
         session.market_trends = {s: 0 for s in CONFIG['STOCK_SECTORS']}
@@ -99,15 +109,15 @@ class GameService:
             session=session,
             career_stage=career_stage,
             responsibility_level=PersonaProfile.ResponsibilityLevel.MEDIUM, # Default
-            risk_appetite=PersonaProfile.RiskAppetite.MEDIUM
+            risk_appetite=risk_appetite
         )
         
         # Create Primary Income Source
         IncomeSource.objects.create(
             session=session,
-            source_type=income_source,
+            source_type=income_source_type,
             amount_base=income_amount,
-            variability=0.1 if income_source in ['BUSINESS', 'FREELANCE'] else 0.0,
+            variability=0.1 if income_source_type in ['BUSINESS', 'FREELANCE'] else 0.0,
             frequency='MONTHLY'
         )
 
@@ -227,30 +237,36 @@ class GameService:
             except Exception as e:
                 logger.warning("AI Generation failed: %s", e)
 
-        # --- STANDARD DECK FALLBACK ---
-        level_filters = CONFIG['LEVEL_CARD_FILTERS'].get(
-            session.current_level,
-            CONFIG['LEVEL_CARD_FILTERS'][1]
-        )
-        shown_ids = PlayerChoice.objects.filter(session=session).values_list('card_id', flat=True)
+        # --- SCENARIO TIERING (Fix for Instant Death) ---
+        # If early game or low wealth, restrict difficulty to prevent bankruptcy
+        max_difficulty = level_filters['max_difficulty']
+        
+        # TIER 1 SAFETY: Month 1-2 OR Wealth < 15k -> Max Difficulty 1
+        if session.current_month <= 2 or session.wealth < 15000:
+            max_difficulty = 1
+            # Explicitly exclude cards that cost > 50% of current wealth (if wealth impact logic was queryable, but difficulty is proxy)
+            # Assuming Difficulty 1 cards are low impact (< 5k cost)
 
         available = ScenarioCard.objects.filter(
             is_active=True,
             is_generated=False,
             min_month__lte=session.current_month,
-            difficulty__lte=level_filters['max_difficulty']
+            difficulty__lte=max_difficulty
         ).exclude(id__in=shown_ids)
 
         if level_filters['categories']:
             available = available.filter(category__in=level_filters['categories'])
 
+        # Fallback 1: Relax difficulty filter if no cards
         if not available.exists():
             available = ScenarioCard.objects.filter(
                 is_active=True,
                 is_generated=False,
-                min_month__lte=session.current_month
+                min_month__lte=session.current_month,
+                difficulty__lte=max_difficulty + 1 # Slight relax
             ).exclude(id__in=shown_ids)
 
+        # Fallback 2: Any active card
         if not available.exists():
             available = ScenarioCard.objects.filter(
                 is_active=True,
@@ -260,6 +276,12 @@ class GameService:
 
         if not available.exists():
             return None
+
+        # Additional Safety: If wealth is critical (< 5000), try to find a gain card or low cost
+        if session.wealth < 5000:
+             safe_cards = [c for c in available if c.category != 'EMERGENCY']
+             if safe_cards:
+                 return random.choice(safe_cards)
 
         return random.choice(list(available))
 
@@ -482,7 +504,7 @@ class GameService:
                 income_report_lines.append(f"+₹{amount} from {source.get_source_type_display()}")
 
         if not income_sources.exists():
-            total_income = CONFIG['MONTHLY_SALARY']
+            total_income = session.monthly_salary  # Use session's salary instead of static config
             income_report_lines.append(f"+₹{total_income} Salary credited.")
 
         session.wealth += total_income

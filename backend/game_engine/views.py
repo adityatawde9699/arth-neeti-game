@@ -60,8 +60,13 @@ def start_game(request):
     # User is guaranteed to be authenticated by Firebase
     user = request.user
 
+    # Parse options
+    career_stage = request.data.get('career_stage')
+    risk_appetite = request.data.get('risk_appetite')
+    user_name = request.data.get('user_name')
+
     # Use Engine to start session
-    session = GameEngine.start_new_session(user)
+    session = GameEngine.start_new_session(user, career_stage, risk_appetite, user_name)
 
     serializer = GameSessionSerializer(session)
     return Response({
