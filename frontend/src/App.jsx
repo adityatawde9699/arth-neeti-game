@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { api } from './api';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -292,12 +292,25 @@ function AppRoutes() {
         // Optional: Any auth-dependent side effects
     }, [currentUser]);
 
+    // Use a ref for synchronous checking to prevent double-clicks
+    const isStartingRef = useRef(false);
+    const [isStarting, setIsStarting] = useState(false);
+
     const handleStartGame = useCallback(async () => {
+        if (isStartingRef.current) return;
+
+        isStartingRef.current = true;
+        setIsStarting(true);
+
         try {
             await startGame();
             navigate('/game');
         } catch (err) {
             if (import.meta.env.DEV) console.error('Failed to start game:', err);
+            // Only reset if failed, so user can try again. 
+            // If success, we navigate away so no need to reset immediately
+            isStartingRef.current = false;
+            setIsStarting(false);
         }
     }, [navigate, startGame]);
 
@@ -337,7 +350,7 @@ function AppRoutes() {
                 } />
                 <Route path="/" element={
                     <ProtectedRoute>
-                        <HomePage onStartGame={handleStartGame} username={currentUser?.email?.split('@')[0] || 'User'} />
+                        <HomePage onStartGame={handleStartGame} isLoading={isStarting} username={currentUser?.email?.split('@')[0] || 'User'} />
                     </ProtectedRoute>
                 } />
                 <Route path="/game" element={

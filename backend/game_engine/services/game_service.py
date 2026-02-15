@@ -42,15 +42,17 @@ class GameService:
     @staticmethod
     def start_new_session(user):
         """Initialize a new game session with defaults."""
+        from django.db import transaction
         CONFIG = GameEngineConfig.CONFIG
 
-        session = GameSession.objects.create(
-            user=user,
-            wealth=CONFIG['STARTING_WEALTH'],
-            happiness=CONFIG['HAPPINESS_START'],
-            credit_score=CONFIG['CREDIT_SCORE_START'],
-            current_month=CONFIG['START_MONTH']
-        )
+        with transaction.atomic():
+            session = GameSession.objects.create(
+                user=user,
+                wealth=CONFIG['STARTING_WEALTH'],
+                happiness=CONFIG['HAPPINESS_START'],
+                credit_score=CONFIG['CREDIT_SCORE_START'],
+                current_month=CONFIG['START_MONTH']
+            )
         
         # --- Generate Persona & Income ---
         # Randomly assign a career stage for variety, or could be user-selected in future
@@ -287,113 +289,115 @@ class GameService:
         """Main game loop step."""
         # Late import to avoid circular dependency
         from . import GameEngine
+        from django.db import transaction
 
-        GameService._append_gameplay_log(
-            session,
-            (
-                f"Month {session.current_month}: {card.title} — {choice.text}. "
-                f"Impact: wealth {choice.wealth_impact:+}, happiness {choice.happiness_impact:+}, "
-                f"credit {choice.credit_impact:+}, literacy {choice.literacy_impact:+}."
-            ),
-        )
-
-        # 1. Apply Direct Impacts
-        session.wealth += choice.wealth_impact
-        session.happiness += choice.happiness_impact
-        session.credit_score += choice.credit_impact
-        session.financial_literacy += choice.literacy_impact
-
-        session.happiness = GameService._clamp(session.happiness, 0, 100)
-        session.credit_score = GameService._clamp(session.credit_score, 300, 900)
-
-        feedback_parts = []
-        if choice.feedback:
-            feedback_parts.append(choice.feedback)
-
-        # 2. Handle Recurring Expenses (Add/Remove)
-        if choice.adds_recurring_expense > 0:
-            RecurringExpense.objects.create(
-                session=session,
-                name=choice.expense_name or f"Expense from '{card.title}'",
-                amount=choice.adds_recurring_expense,
-                category='LIFESTYLE',
-                is_essential=False,
-                inflation_rate=0.04,
-                started_month=session.current_month
+        with transaction.atomic():
+            GameService._append_gameplay_log(
+                session,
+                (
+                    f"Month {session.current_month}: {card.title} — {choice.text}. "
+                    f"Impact: wealth {choice.wealth_impact:+}, happiness {choice.happiness_impact:+}, "
+                    f"credit {choice.credit_impact:+}, literacy {choice.literacy_impact:+}."
+                ),
             )
 
-        if choice.cancels_expense_name:
-            expenses = session.expenses.filter(
-                name=choice.cancels_expense_name,
-                is_cancelled=False
-            )
-            count = expenses.update(
-                is_cancelled=True,
-                cancelled_month=session.current_month
-            )
-            if count > 0:
-                feedback_parts.append(f" (Cancelled {count} subscription(s)!)")
+            # 1. Apply Direct Impacts
+            session.wealth += choice.wealth_impact
+            session.happiness += choice.happiness_impact
+            session.credit_score += choice.credit_impact
+            session.financial_literacy += choice.literacy_impact
 
-        # 3. Handle Market Events
-        if card.market_event and card.market_event.is_active:
-            event = card.market_event
-            impacts = event.sector_impacts
+            session.happiness = GameService._clamp(session.happiness, 0, 100)
+            session.credit_score = GameService._clamp(session.credit_score, 300, 900)
 
-            market_changes = []
-            if session.market_prices:
-                for sector, multiplier in impacts.items():
-                    if sector in session.market_prices:
-                        old_price = session.market_prices[sector]
-                        new_price = int(old_price * multiplier)
-                        session.market_prices[sector] = new_price
+            feedback_parts = []
+            if choice.feedback:
+                feedback_parts.append(choice.feedback)
 
-                        trend_impact = 3 if multiplier > 1 else -3
-                        session.market_trends[sector] = trend_impact
+            # 2. Handle Recurring Expenses (Add/Remove)
+            if choice.adds_recurring_expense > 0:
+                RecurringExpense.objects.create(
+                    session=session,
+                    name=choice.expense_name or f"Expense from '{card.title}'",
+                    amount=choice.adds_recurring_expense,
+                    category='LIFESTYLE',
+                    is_essential=False,
+                    inflation_rate=0.04,
+                    started_month=session.current_month
+                )
 
-                        pct = int((multiplier - 1) * 100)
-                        direction = "surged" if pct > 0 else "crashed"
-                        market_changes.append(f"{sector.title()} {direction} {abs(pct)}%")
+            if choice.cancels_expense_name:
+                expenses = session.expenses.filter(
+                    name=choice.cancels_expense_name,
+                    is_cancelled=False
+                )
+                count = expenses.update(
+                    is_cancelled=True,
+                    cancelled_month=session.current_month
+                )
+                if count > 0:
+                    feedback_parts.append(f" (Cancelled {count} subscription(s)!)")
 
-            if market_changes:
-                feedback_parts.append(f" 📉 MARKET NEWS: {', '.join(market_changes)}!")
+            # 3. Handle Market Events
+            if card.market_event and card.market_event.is_active:
+                event = card.market_event
+                impacts = event.sector_impacts
 
-        # 4. Log Choice
-        PlayerChoice.objects.create(session=session, card=card, choice=choice)
+                market_changes = []
+                if session.market_prices:
+                    for sector, multiplier in impacts.items():
+                        if sector in session.market_prices:
+                            old_price = session.market_prices[sector]
+                            new_price = int(old_price * multiplier)
+                            session.market_prices[sector] = new_price
 
-        # 5. Advance Month Check
-        CONFIG = GameEngineConfig.CONFIG
-        choices_count = PlayerChoice.objects.filter(session=session).count()
-        new_month = (choices_count // CONFIG['CARDS_PER_MONTH']) + 1
+                            trend_impact = 3 if multiplier > 1 else -3
+                            session.market_trends[sector] = trend_impact
 
-        if new_month > session.current_month:
-            result = GameEngine.advance_month(session)
+                            pct = int((multiplier - 1) * 100)
+                            direction = "surged" if pct > 0 else "crashed"
+                            market_changes.append(f"{sector.title()} {direction} {abs(pct)}%")
 
-            feedback_parts.append(result['report'])
+                if market_changes:
+                    feedback_parts.append(f" 📉 MARKET NEWS: {', '.join(market_changes)}!")
 
-            if result['game_over']:
-                GameEngine._finalize_game(session, result['game_over_reason'])
-                return {
-                    'session': session,
-                    'feedback': " ".join(feedback_parts),
-                    'game_over': True,
-                    'game_over_reason': result['game_over_reason'],
-                    'final_persona': GameEngine.generate_persona(session),
-                    'chatbot': result.get('chatbot'),
-                }
+            # 4. Log Choice
+            PlayerChoice.objects.create(session=session, card=card, choice=choice)
 
-        # 6. Check Game Over (Immediate)
-        game_over, reason = GameService._check_game_over(session)
-        if game_over:
-            GameEngine._finalize_game(session, reason)
+            # 5. Advance Month Check
+            CONFIG = GameEngineConfig.CONFIG
+            choices_count = PlayerChoice.objects.filter(session=session).count()
+            new_month = (choices_count // CONFIG['CARDS_PER_MONTH']) + 1
 
-        return {
-            'session': session,
-            'feedback': " ".join(feedback_parts),
-            'game_over': game_over,
-            'game_over_reason': reason,
-            'final_persona': GameEngine.generate_persona(session) if game_over else None,
-            'chatbot': result.get('chatbot') if 'result' in locals() else None,
-        }
+            if new_month > session.current_month:
+                result = GameEngine.advance_month(session)
+
+                feedback_parts.append(result['report'])
+
+                if result['game_over']:
+                    GameEngine._finalize_game(session, result['game_over_reason'])
+                    return {
+                        'session': session,
+                        'feedback': " ".join(feedback_parts),
+                        'game_over': True,
+                        'game_over_reason': result['game_over_reason'],
+                        'final_persona': GameEngine.generate_persona(session),
+                        'chatbot': result.get('chatbot'),
+                    }
+
+            # 6. Check Game Over (Immediate)
+            game_over, reason = GameService._check_game_over(session)
+            if game_over:
+                GameEngine._finalize_game(session, reason)
+
+            return {
+                'session': session,
+                'feedback': " ".join(feedback_parts),
+                'game_over': game_over,
+                'game_over_reason': reason,
+                'final_persona': GameEngine.generate_persona(session) if game_over else None,
+                'chatbot': result.get('chatbot') if 'result' in locals() else None,
+            }
 
     @staticmethod
     def process_skip(session, card):
