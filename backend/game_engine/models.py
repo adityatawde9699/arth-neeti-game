@@ -140,6 +140,52 @@ class GameSession(models.Model):
         ordering = ['-created_at']
 
 
+# --- 3. NORMALIZED PORTFOLIO & LEDGER (PHASE 2) ---
+class PortfolioItem(models.Model):
+    """
+    Normalized storage for user's stock holdings.
+    Replaces GameSession.portfolio JSON.
+    """
+    session = models.ForeignKey(GameSession, on_delete=models.CASCADE, related_name='portfolio_items')
+    sector = models.CharField(max_length=50) # e.g., 'tech', 'gold'
+    units = models.FloatField(default=0.0)
+    average_buy_price = models.FloatField(default=0.0) # For profit calculation
+
+    class Meta:
+        unique_together = ('session', 'sector')
+        indexes = [
+            models.Index(fields=['session', 'sector']),
+        ]
+
+    def __str__(self):
+        return f"{self.session.user.username} - {self.sector}: {self.units}"
+
+
+class TransactionLedger(models.Model):
+    """
+    Immutable record of all financial transactions.
+    Replaces GameSession.purchase_history JSON.
+    """
+    class TransactionType(models.TextChoices):
+        BUY = 'BUY', 'Buy'
+        SELL = 'SELL', 'Sell'
+        DIVIDEND = 'DIVIDEND', 'Dividend'
+        ADJUSTMENT = 'ADJUSTMENT', 'Adjustment' # For manual corrections or events
+
+    session = models.ForeignKey(GameSession, on_delete=models.CASCADE, related_name='transactions')
+    transaction_type = models.CharField(max_length=20, choices=TransactionType.choices)
+    sector = models.CharField(max_length=50)
+    units = models.FloatField(default=0.0)
+    price_per_unit = models.FloatField(default=0.0)
+    total_amount = models.FloatField(default=0.0) # units * price
+    month = models.IntegerField() # Game month when this happened
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.transaction_type} {self.units} {self.sector} @ {self.price_per_unit}"
+
+
+
 class IncomeSource(models.Model):
     class SourceType(models.TextChoices):
         ALLOWANCE = 'ALLOWANCE', 'Allowance'

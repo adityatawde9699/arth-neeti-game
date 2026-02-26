@@ -238,7 +238,11 @@ class GameService:
                 logger.warning("AI Generation failed: %s", e)
 
         # --- SCENARIO TIERING (Fix for Instant Death) ---
-        # If early game or low wealth, restrict difficulty to prevent bankruptcy
+        level_filters = CONFIG['LEVEL_CARD_FILTERS'].get(
+            session.current_level, 
+            CONFIG['LEVEL_CARD_FILTERS'][1]
+        )
+        shown_ids = list(PlayerChoice.objects.filter(session=session).values_list('card_id', flat=True))
         max_difficulty = level_filters['max_difficulty']
         
         # TIER 1 SAFETY: Month 1-2 OR Wealth < 15k -> Max Difficulty 1
@@ -605,6 +609,15 @@ class GameService:
         # 6. Check Game Over
         game_over, reason = GameService._check_game_over(session)
 
+        # 6.5. Check Level Up (if not game over)
+        if not game_over:
+            leveled_up, level_desc = GameService._refresh_level(session)
+            if leveled_up:
+                report_lines.append(f"🎉 **LEVEL UP!** You are now at Level {session.current_level}: {level_desc}!")
+                # Bonus for leveling up
+                session.happiness = min(100, session.happiness + 5)
+                report_lines.append("(+5 Happiness Bonus)")
+
         session.save()
 
         if game_over:
@@ -633,7 +646,7 @@ class GameService:
     def process_loan(session, loan_type):
         """Smart Loan System. Limit based on credit score."""
         CONFIG = GameEngineConfig.CONFIG
-        GameService._refresh_level(session)
+        GameService._refresh_level(session)  # Updates session.current_level if changed
 
         if session.current_level < CONFIG['LEVEL_UNLOCKS']['loans']:
             return {'error': "Loans unlock at Level 2."}
@@ -737,6 +750,17 @@ class GameService:
 
     @staticmethod
     def _refresh_level(session):
+        """
+        Recalculate level and update session.
+        Returns: (bool, str) -> (Did Level Up?, Level Description)
+        """
+        CONFIG = GameEngineConfig.CONFIG
         next_level = GameService._calculate_level(session)
-        if session.current_level != next_level:
+        
+        if session.current_level < next_level:
             session.current_level = next_level
+            level_info = next((L for L in CONFIG['LEVEL_THRESHOLDS'] if L['level'] == next_level), None)
+            desc = level_info['desc'] if level_info else f"Level {next_level}"
+            return True, desc
+        
+        return False, None

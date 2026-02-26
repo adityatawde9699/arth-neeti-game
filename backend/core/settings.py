@@ -24,11 +24,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 # In production, always set SECRET_KEY via environment variable.
-# The fallback generates a random key per process — safe for dev, forces you to set it in prod.
-SECRET_KEY = os.environ.get('SECRET_KEY') or secrets.token_urlsafe(50)
+SECRET_KEY = os.environ.get('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
+DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
+
+if not SECRET_KEY and not DEBUG:
+    raise ValueError("SECRET_KEY environment variable is required in production!")
+elif not SECRET_KEY and DEBUG:
+    SECRET_KEY = secrets.token_urlsafe(50)
+    print("WARNING: internal SECRET_KEY used in debug mode.")
 
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
 
@@ -102,22 +107,21 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-DATABASE_URL = os.environ.get('DATABASE_URL')
+# Database
+# https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-if DATABASE_URL:
-    DATABASES = {
-        'default': dj_database_url.config(default=DATABASE_URL, conn_max_age=600)
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
-else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-            'OPTIONS': {
-                'timeout': 20,
-            }
-        }
-    }
+}
+
+# Production Database (Railway/PostgreSQL)
+import dj_database_url
+db_from_env = dj_database_url.config(conn_max_age=600)
+if db_from_env:
+    DATABASES['default'].update(db_from_env)
 
 
 # Password validation

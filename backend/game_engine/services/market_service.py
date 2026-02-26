@@ -2,7 +2,7 @@
 import random
 import logging
 
-from ..models import RecurringExpense, StockHistory, FuturesContract
+from ..models import RecurringExpense, StockHistory, FuturesContract, GameSession
 from .config import GameEngineConfig
 
 logger = logging.getLogger(__name__)
@@ -58,41 +58,46 @@ class MarketService:
     @staticmethod
     def buy_stock(session, sector, amount):
         """Buy stocks in a specific sector."""
+        from django.db import transaction
         from .game_service import GameService
         CONFIG = GameEngineConfig.CONFIG
+        
+        with transaction.atomic():
+            # Lock the session row to prevent race conditions
+            session = GameSession.objects.select_for_update().get(id=session.id)
 
-        GameService._refresh_level(session)
-        if session.current_level < CONFIG['LEVEL_UNLOCKS']['investing']:
-            return {'error': "Investing unlocks at Level 2."}
-        if (
-            session.current_level < CONFIG['LEVEL_UNLOCKS']['diversification']
-            and session.portfolio
-            and any(units > 0 for s, units in session.portfolio.items() if s != sector)
-        ):
-            return {'error': "Diversification unlocks at Level 3. Stick to one sector for now."}
-        if sector not in CONFIG['STOCK_SECTORS']:
-            return {'error': "Invalid sector."}
+            GameService._refresh_level(session)
+            if session.current_level < CONFIG['LEVEL_UNLOCKS']['investing']:
+                return {'error': "Investing unlocks at Level 2."}
+            if (
+                session.current_level < CONFIG['LEVEL_UNLOCKS']['diversification']
+                and session.portfolio
+                and any(units > 0 for s, units in session.portfolio.items() if s != sector)
+            ):
+                return {'error': "Diversification unlocks at Level 3. Stick to one sector for now."}
+            if sector not in CONFIG['STOCK_SECTORS']:
+                return {'error': "Invalid sector."}
 
-        if amount <= 0:
-            return {'error': "Amount must be positive."}
+            if amount <= 0:
+                return {'error': "Amount must be positive."}
 
-        if session.wealth < amount:
-            return {'error': "Insufficient funds."}
+            if session.wealth < amount:
+                return {'error': "Insufficient funds."}
 
-        current_price = session.market_prices.get(sector, 100)
-        units = amount / current_price
+            current_price = session.market_prices.get(sector, 100)
+            units = amount / current_price
 
-        session.wealth -= amount
-        session.portfolio[sector] = session.portfolio.get(sector, 0) + units
+            session.wealth -= amount
+            session.portfolio[sector] = session.portfolio.get(sector, 0) + units
 
-        session.purchase_history.append({
-            "sector": sector,
-            "units": units,
-            "price": current_price,
-            "month": session.current_month
-        })
+            session.purchase_history.append({
+                "sector": sector,
+                "units": units,
+                "price": current_price,
+                "month": session.current_month
+            })
 
-        session.save()
+            session.save()
 
         return {
             'session': session,
@@ -102,25 +107,30 @@ class MarketService:
     @staticmethod
     def sell_stock(session, sector, amount):
         """Sell stocks. `amount` refers to UNITS to sell."""
+        from django.db import transaction
         CONFIG = GameEngineConfig.CONFIG
-        if sector not in CONFIG['STOCK_SECTORS']:
-            return {'error': "Invalid sector."}
 
-        units_to_sell = float(amount)
+        with transaction.atomic():
+             # Lock the session row to prevent race conditions
+            session = GameSession.objects.select_for_update().get(id=session.id)
+            if sector not in CONFIG['STOCK_SECTORS']:
+                return {'error': "Invalid sector."}
 
-        if units_to_sell <= 0:
-            return {'error': "Invalid units."}
+            units_to_sell = float(amount)
 
-        current_owned = session.portfolio.get(sector, 0)
-        if current_owned < units_to_sell:
-            return {'error': f"You only have {current_owned:.2f} units."}
+            if units_to_sell <= 0:
+                return {'error': "Invalid units."}
 
-        current_price = session.market_prices.get(sector, 100)
-        cash_value = units_to_sell * current_price
+            current_owned = session.portfolio.get(sector, 0)
+            if current_owned < units_to_sell:
+                return {'error': f"You only have {current_owned:.2f} units."}
 
-        session.wealth += int(cash_value)
-        session.portfolio[sector] = current_owned - units_to_sell
-        session.save()
+            current_price = session.market_prices.get(sector, 100)
+            cash_value = units_to_sell * current_price
+
+            session.wealth += int(cash_value)
+            session.portfolio[sector] = current_owned - units_to_sell
+            session.save()
 
         return {
             'session': session,

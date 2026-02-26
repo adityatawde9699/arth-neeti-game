@@ -9,14 +9,18 @@ from .models import ScenarioCard, Choice, PersonaProfile
 # Configure logging
 logger = logging.getLogger(__name__)
 
-# Try to import groq
-try:
-    from groq import Groq
-    GROQ_AVAILABLE = True
-except ImportError:
-    GROQ_AVAILABLE = False
-    Groq = None
-    logger.warning("Groq library not found. AI features will be disabled.")
+import os
+import random
+import json
+import logging
+from typing import Dict, List, Optional
+from dataclasses import dataclass
+from .models import ScenarioCard, Choice, PersonaProfile
+from core.ai.factory import get_ai_provider
+
+# Configure logging
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class GeneratedScenario:
@@ -27,13 +31,7 @@ class GeneratedScenario:
 
 class AIGameMaster:
     """
-    Handles dynamic scenario generation using LLMs (Groq/Llama 3.1 8B Instant).
-    
-    Uses llama-3.1-8b-instant for fast, efficient scenario generation.
-    This model provides:
-    - Ultra-fast inference (thanks to Groq's LPU)
-    - 14,400 free requests per day
-    - High-quality reasoning for financial scenarios
+    Handles dynamic scenario generation using AI Provider.
     """
     
     # Prompt Templates
@@ -111,20 +109,12 @@ class AIGameMaster:
     }
 
     def __init__(self):
-        self.api_key = os.environ.get('GROQ_API_KEY')
-        self.client = None
+        self.provider = get_ai_provider()
         
-        if GROQ_AVAILABLE and self.api_key:
-            try:
-                self.client = Groq(api_key=self.api_key)
-                logger.info("✅ Groq AI initialized successfully (llama-3.1-8b-instant)")
-            except Exception as e:
-                logger.error(f"❌ Failed to initialize Groq: {e}")
+        if self.provider:
+            logger.info(f"✅ AI GameMaster initialized with {self.provider.__class__.__name__}")
         else:
-            if not GROQ_AVAILABLE:
-                logger.warning("⚠️ Groq library not installed.")
-            elif not self.api_key:
-                logger.warning("⚠️ GROQ_API_KEY not set.")
+            logger.warning("⚠️ No AI Provider available.")
 
     def generate_scenario(self, 
                           profile: PersonaProfile, 
@@ -135,7 +125,7 @@ class AIGameMaster:
         Generates a new ScenarioCard using AI.
         Returns None if AI fails or is unavailable.
         """
-        if not self.client:
+        if not self.provider:
             return None
 
         # Resolve career-specific context
@@ -157,28 +147,15 @@ class AIGameMaster:
         )
 
         try:
-            chat_completion = self.client.chat.completions.create(
-                messages=[
-                    {
-                        "role": "system",
-                        "content": self.SYSTEM_PROMPT
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
-                model="llama-3.1-8b-instant",  # Fast, efficient model with 14,400 free requests/day
+            data = self.provider.generate_json(
+                prompt=prompt,
+                system_prompt=self.SYSTEM_PROMPT,
                 temperature=0.7,
-                max_tokens=1024,
-                top_p=1,
-                stop=None,
-                stream=False,
-                response_format={"type": "json_object"}
+                max_tokens=1024
             )
             
-            response_content = chat_completion.choices[0].message.content
-            data = json.loads(response_content)
+            if not data:
+                return None
             
             # Create and Save objects (But maybe just return the object? No, we need to save to DB to use existing View logic)
             # Actually, `services.py` expects a model object.

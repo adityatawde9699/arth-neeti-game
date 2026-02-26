@@ -17,17 +17,11 @@ from typing import Dict, List, Optional, Tuple
 from functools import lru_cache
 from dataclasses import dataclass
 from enum import Enum
-
-# Try to import Groq library
-try:
-    from groq import Groq
-    GROQ_AVAILABLE = True
-except ImportError:
-    GROQ_AVAILABLE = False
-    Groq = None
+from core.ai.factory import get_ai_provider
 
 logger = logging.getLogger(__name__)
 
+GROQ_AVAILABLE = bool(os.getenv('GROQ_API_KEY'))
 
 class Language(Enum):
     """Supported languages for advice."""
@@ -144,23 +138,14 @@ class FinancialAdvisor:
             enable_cache: Whether to cache advice responses
             max_retries: Maximum retry attempts for API calls
         """
-        self.api_key = os.environ.get('GROQ_API_KEY')
-        self.client = None
         self.max_retries = max_retries
         self.cache = AdviceCache() if enable_cache else None
-
-        if GROQ_AVAILABLE and self.api_key:
-            try:
-                self.client = Groq(api_key=self.api_key)
-                logger.info("Groq AI initialized successfully (Llama 3.1 8B)")
-            except Exception as e:
-                logger.error("Failed to initialize Groq: %s", e)
-                self.client = None
+        self.provider = get_ai_provider()
+        
+        if self.provider:
+            logger.info(f"AI Provider initialized: {self.provider.__class__.__name__}")
         else:
-            if not GROQ_AVAILABLE:
-                logger.info("groq library not installed. Using fallback advice only.")
-            elif not self.api_key:
-                logger.info("GROQ_API_KEY not set. Using fallback advice only.")
+            logger.info("No AI Provider available. Using fallback advice only.")
 
     def get_advice(
         self,
@@ -268,9 +253,9 @@ class FinancialAdvisor:
         category: AdviceCategory,
         persona: AdvisorPersona
     ) -> Optional[str]:
-        """Generate advice using Groq's Llama 3.1 model."""
+        """Generate advice using the AI Provider."""
         
-        if not self.client:
+        if not self.provider:
             return None
         
         # Language names for prompt
@@ -313,26 +298,14 @@ Keep your response:
 Start with an emoji that fits the advice tone."""
 
         try:
-            # Call Groq API with Llama 3.1 8B model
-            completion = self.client.chat.completions.create(
-                model="llama-3.1-8b-instant",
-                messages=[
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
+            return self.provider.generate_text(
+                prompt=prompt,
                 temperature=0.7,
                 max_tokens=200,
-                top_p=0.9,
-                stream=False
+                top_p=0.9
             )
-            
-            advice = completion.choices[0].message.content.strip()
-            return advice if advice else None
-            
         except Exception as e:
-            logger.error("Groq API error: %s", e)
+            logger.error(f"AI Provider error: {e}")
             return None
 
     def _get_fallback_advice(self, category: AdviceCategory, language: str) -> str:
@@ -552,15 +525,14 @@ Current Happiness: {current_happiness}
 
 Give a short, punchy, 1-sentence reaction/advice."""
 
-        if self.client:
+        if self.provider:
             try:
-                completion = self.client.chat.completions.create(
-                    model="llama-3.1-8b-instant",
-                    messages=[{"role": "user", "content": prompt}],
+                msg = self.provider.generate_text(
+                    prompt=prompt,
                     temperature=0.8,
                     max_tokens=60
                 )
-                return completion.choices[0].message.content.strip()
+                return msg if msg else f"Warning: {trigger_reason}. Watch your finances!"
             except Exception:
                 pass
         
@@ -602,20 +574,16 @@ Give a short, punchy, 1-sentence reaction/advice."""
         )
 
         message = None
-        if self.client and system_prompt:
+        if self.provider and system_prompt:
             try:
-                completion = self.client.chat.completions.create(
-                    model="llama-3.1-8b-instant",
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt},
-                    ],
+                message = self.provider.generate_text(
+                    prompt=user_prompt,
+                    system_prompt=system_prompt,
                     temperature=0.9,
-                    max_tokens=100,
+                    max_tokens=100
                 )
-                message = completion.choices[0].message.content.strip()
             except Exception as e:
-                logger.warning("Character AI failed for %s: %s", character, e)
+                logger.warning(f"Character AI failed for {character}: {e}")
 
         # Fallback to curated dialogue
         if not message:
